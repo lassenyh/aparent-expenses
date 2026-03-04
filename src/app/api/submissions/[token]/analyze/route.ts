@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { get } from "@vercel/blob";
 import { prisma } from "@/lib/db";
 import { analyzeReceipt } from "@/lib/analyzeReceipt";
+
+export const runtime = "nodejs";
+export const maxDuration = 60;
 import {
   detectSmartComment,
   parseCommentFlags,

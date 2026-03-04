@@ -160,8 +160,24 @@ async function analyzeWithVision(bytes: Buffer, mimeType: string): Promise<Analy
   }
 }
 
+/** Resolve path to pdfjs-dist worker so PDF parsing works in serverless (e.g. Vercel). */
+function getPdfWorkerPath(): string {
+  try {
+    const path = require("path");
+    try {
+      return require.resolve("pdfjs-dist/legacy/build/pdf.worker.mjs");
+    } catch {
+      return path.join(process.cwd(), "node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs");
+    }
+  } catch {
+    return "";
+  }
+}
+
 async function extractTextFromPdf(bytes: Buffer): Promise<string> {
   const { PDFParse } = await import("pdf-parse");
+  const workerPath = getPdfWorkerPath();
+  if (workerPath) PDFParse.setWorker(workerPath);
   const data = new Uint8Array(bytes);
   const parser = new PDFParse({ data });
   try {
@@ -176,6 +192,8 @@ async function extractTextFromPdf(bytes: Buffer): Promise<string> {
 async function pdfFirstPageToPngBuffer(bytes: Buffer): Promise<Buffer | null> {
   try {
     const { PDFParse } = await import("pdf-parse");
+    const workerPath = getPdfWorkerPath();
+    if (workerPath) PDFParse.setWorker(workerPath);
     const data = new Uint8Array(bytes);
     const parser = new PDFParse({ data });
     const result = await parser.getScreenshot({ first: 1, scale: 1.5 });
