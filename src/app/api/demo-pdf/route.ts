@@ -63,7 +63,7 @@ export async function GET() {
       async () => placeholderImage
     );
 
-    return new NextResponse(pdfBuffer, {
+    return new Response(pdfBuffer, {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": 'attachment; filename="utlegg-demo.pdf"',
