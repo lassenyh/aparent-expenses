@@ -1,3 +1,6 @@
+export const runtime = "nodejs";
+export const maxDuration = 60;
+
 import { NextResponse } from "next/server";
 import { get, put } from "@vercel/blob";
 import { prisma } from "@/lib/db";
