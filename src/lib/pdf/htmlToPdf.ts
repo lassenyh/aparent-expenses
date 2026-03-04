@@ -15,10 +15,12 @@ export async function htmlToPdf(html: string): Promise<Buffer> {
   const isVercel = process.env.VERCEL === "1";
 
   if (isVercel) {
-    const chromium = (await import("@sparticuz/chromium")).default;
+    const chromium = (await import("@sparticuz/chromium-min")).default;
     const puppeteer = await import("puppeteer-core");
     chromium.setGraphicsMode = false;
-    const executablePath = await chromium.executablePath();
+    const CHROMIUM_PACK_URL =
+      "https://github.com/Sparticuz/chromium/releases/download/v143.0.4/chromium-v143.0.4-pack.x64.tar";
+    const executablePath = await chromium.executablePath(CHROMIUM_PACK_URL);
     const args = chromium.args;
 
     const browser = await puppeteer.default.launch({
