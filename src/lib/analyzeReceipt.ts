@@ -1,6 +1,6 @@
 /**
  * AI-drevet analyse av kvitteringer (bilde eller PDF).
- * Bruker OpenAI GPT-4o: Vision for bilder, tekstanalyse for PDF.
+ * Bruker OpenAI GPT-4o: Vision for bilder, Responses API (input_file) for PDF.
  */
 import OpenAI from "openai";
 import type { AnalyzeReceiptResult } from "./analyzeReceipt.types";
@@ -18,11 +18,6 @@ Regler for summary:
 Bare returner JSON, ingen markdown eller forklaring.`;
 
 const IMAGE_PROMPT = `Analyser denne kvitteringen og returner JSON med "summary" (kort, uten ordet Kvittering; hvis det er mat/drikke inkluder f.eks. mat, restaurant eller takeaway), "total" (beløp) og "currency" (ISO-valutakode) som beskrevet.`;
-
-const PDF_PROMPT = `Analyser følgende tekst fra en kvitterings-PDF og returner JSON med "summary" (kort, uten ordet Kvittering), "total" (beløp) og "currency" (ISO-valutakode) som beskrevet.
-
-Tekst:
-`;
 
 function getOpenAIClient(): OpenAI | null {
   const apiKey = process.env.OPENAI_API_KEY;
@@ -160,108 +155,46 @@ async function analyzeWithVision(bytes: Buffer, mimeType: string): Promise<Analy
   }
 }
 
-/** Resolve path to pdfjs-dist worker so PDF parsing works in serverless (e.g. Vercel). */
-function getPdfWorkerPath(): string {
-  try {
-    const path = require("path");
-    try {
-      return require.resolve("pdfjs-dist/legacy/build/pdf.worker.mjs");
-    } catch {
-      return path.join(process.cwd(), "node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs");
-    }
-  } catch {
-    return "";
-  }
-}
-
-async function extractTextFromPdf(bytes: Buffer): Promise<string> {
-  const { PDFParse } = await import("pdf-parse");
-  const workerPath = getPdfWorkerPath();
-  if (workerPath) PDFParse.setWorker(workerPath);
-  const data = new Uint8Array(bytes);
-  const parser = new PDFParse({ data });
-  try {
-    const result = await parser.getText();
-    return typeof result?.text === "string" ? result.text : "";
-  } finally {
-    await parser.destroy();
-  }
-}
-
-/** Render første side av PDF som PNG-bilde (fallback når tekst uttrekk feiler). */
-async function pdfFirstPageToPngBuffer(bytes: Buffer): Promise<Buffer | null> {
-  try {
-    const { PDFParse } = await import("pdf-parse");
-    const workerPath = getPdfWorkerPath();
-    if (workerPath) PDFParse.setWorker(workerPath);
-    const data = new Uint8Array(bytes);
-    const parser = new PDFParse({ data });
-    const result = await parser.getScreenshot({ first: 1, scale: 1.5 });
-    await parser.destroy();
-    const firstPage = result?.pages?.[0];
-    if (firstPage?.data) {
-      return Buffer.from(firstPage.data);
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-async function analyzePdfWithText(bytes: Buffer): Promise<AnalyzeReceiptResult> {
+/**
+ * Analyserer PDF ved å sende filen direkte til OpenAI Responses API (input_file + base64).
+ * Fungerer på Vercel uten pdf-parse/pdfjs worker.
+ */
+async function analyzePdfWithResponsesApi(bytes: Buffer): Promise<AnalyzeReceiptResult> {
   const client = getOpenAIClient();
   if (!client) {
     return STUB_RESULT;
   }
 
-  let text: string;
-  try {
-    text = await extractTextFromPdf(bytes);
-  } catch (err) {
-    console.warn("[analyzeReceipt] PDF tekstuttrekk feilet, prøver Vision på første side:", err instanceof Error ? err.message : err);
-    const pngBuffer = await pdfFirstPageToPngBuffer(bytes);
-    if (pngBuffer) {
-      return analyzeWithVision(pngBuffer, "image/png");
-    }
-    return STUB_RESULT;
-  }
-
-  if (!text.trim() || text.trim().length < 10) {
-    const pngBuffer = await pdfFirstPageToPngBuffer(bytes);
-    if (pngBuffer) {
-      return analyzeWithVision(pngBuffer, "image/png");
-    }
-    return { summary: "Kvittering (PDF uten lesbar tekst)", totalCents: null, currency: "NOK", originalAmountCents: null };
-  }
+  const base64 = bytes.toString("base64");
+  const fileData = `data:application/pdf;base64,${base64}`;
 
   try {
-    const response = await client.chat.completions.create({
+    const response = await client.responses.create({
       model: "gpt-4o",
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: PDF_PROMPT + text.slice(0, 12000) },
+      instructions: SYSTEM_PROMPT,
+      input: [
+        {
+          role: "user",
+          content: [
+            { type: "input_file", file_data: fileData },
+            { type: "input_text", text: IMAGE_PROMPT },
+          ],
+        },
       ],
-      max_tokens: 500,
+      max_output_tokens: 500,
     });
 
-    const content = response.choices[0]?.message?.content;
-    if (!content) {
-      const pngBuffer = await pdfFirstPageToPngBuffer(bytes);
-      if (pngBuffer) {
-        return analyzeWithVision(pngBuffer, "image/png");
-      }
+    const outputText = response.output_text ?? "";
+
+    if (!outputText.trim()) {
       return STUB_RESULT;
     }
 
-    const { summary, total, currency } = parseModelResponse(content);
-    return { ...toResult(summary, total, currency), extractedText: text };
+    const { summary, total, currency } = parseModelResponse(outputText);
+    return toResult(summary, total, currency);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.warn("[analyzeReceipt] OpenAI PDF-analyse feilet, prøver Vision på første side:", msg);
-    const pngBuffer = await pdfFirstPageToPngBuffer(bytes);
-    if (pngBuffer) {
-      return analyzeWithVision(pngBuffer, "image/png");
-    }
+    console.warn("[analyzeReceipt] OpenAI Responses API (PDF) feilet:", msg);
     return STUB_RESULT;
   }
 }
@@ -273,7 +206,7 @@ export async function analyzeReceipt(
   const isPdf = mimeType.toLowerCase().includes("pdf");
 
   if (isPdf) {
-    return analyzePdfWithText(bytes);
+    return analyzePdfWithResponsesApi(bytes);
   }
 
   // HEIC (iPhone) støttes ikke direkte av OpenAI Vision – konverter til JPEG
