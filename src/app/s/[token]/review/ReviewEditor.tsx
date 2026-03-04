@@ -340,12 +340,12 @@ export function ReviewEditor({
           setReceipts(mapped);
           setCommentExpandedIds((prev) => {
             const next = new Set(prev);
-            mapped.forEach((r) => {
+            mapped.forEach((r: ReceiptRow) => {
               if (parseCommentFlags(r.commentFlags).length > 0) next.add(r.id);
             });
             return next;
           });
-          if (mapped.some((r) => parseCommentFlags(r.commentFlags).includes("MEAL"))) {
+          if (mapped.some((r: ReceiptRow) => parseCommentFlags(r.commentFlags).includes("MEAL"))) {
             setShowMealInfoModal(true);
           }
         }
