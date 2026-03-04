@@ -3,6 +3,7 @@
  * Bruker OpenAI GPT-4o: Vision for bilder, Responses API (input_file) for PDF.
  */
 import OpenAI from "openai";
+import { toFile } from "openai/uploads";
 import type { AnalyzeReceiptResult } from "./analyzeReceipt.types";
 import { convertToNokCents } from "./currency";
 
@@ -156,10 +157,56 @@ async function analyzeWithVision(bytes: Buffer, mimeType: string): Promise<Analy
 }
 
 /**
- * Analyserer PDF ved å sende filen direkte til OpenAI Responses API (input_file + base64).
- * Fungerer på Vercel uten pdf-parse/pdfjs worker.
+ * Analyserer PDF: først last opp til OpenAI Files API, deretter Responses API med file_id.
+ * Unngår store request-body og fungerer på Vercel.
  */
-async function analyzePdfWithResponsesApi(bytes: Buffer): Promise<AnalyzeReceiptResult> {
+async function analyzePdfWithFilesApi(bytes: Buffer): Promise<AnalyzeReceiptResult> {
+  const client = getOpenAIClient();
+  if (!client) {
+    return STUB_RESULT;
+  }
+
+  try {
+    const file = await toFile(bytes, "receipt.pdf", { type: "application/pdf" });
+    const uploaded = await client.files.create({
+      file,
+      purpose: "user_data",
+    });
+
+    const response = await client.responses.create({
+      model: "gpt-4o",
+      instructions: SYSTEM_PROMPT,
+      input: [
+        {
+          role: "user",
+          content: [
+            { type: "input_file", file_id: uploaded.id },
+            { type: "input_text", text: IMAGE_PROMPT },
+          ],
+        },
+      ],
+      max_output_tokens: 500,
+    });
+
+    const outputText = response.output_text ?? "";
+    if (!outputText.trim()) {
+      return STUB_RESULT;
+    }
+
+    const { summary, total, currency } = parseModelResponse(outputText);
+    return toResult(summary, total, currency);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    const body = err && typeof err === "object" && "body" in err ? (err as { body?: unknown }).body : undefined;
+    console.warn("[analyzeReceipt] OpenAI PDF (Files + Responses) feilet:", msg, body ? JSON.stringify(body).slice(0, 300) : "");
+    return STUB_RESULT;
+  }
+}
+
+/**
+ * Fallback: PDF som base64 i Responses API (input_file file_data).
+ */
+async function analyzePdfWithBase64(bytes: Buffer): Promise<AnalyzeReceiptResult> {
   const client = getOpenAIClient();
   if (!client) {
     return STUB_RESULT;
@@ -176,7 +223,7 @@ async function analyzePdfWithResponsesApi(bytes: Buffer): Promise<AnalyzeReceipt
         {
           role: "user",
           content: [
-            { type: "input_file", file_data: fileData },
+            { type: "input_file", filename: "receipt.pdf", file_data: fileData },
             { type: "input_text", text: IMAGE_PROMPT },
           ],
         },
@@ -185,7 +232,6 @@ async function analyzePdfWithResponsesApi(bytes: Buffer): Promise<AnalyzeReceipt
     });
 
     const outputText = response.output_text ?? "";
-
     if (!outputText.trim()) {
       return STUB_RESULT;
     }
@@ -194,9 +240,21 @@ async function analyzePdfWithResponsesApi(bytes: Buffer): Promise<AnalyzeReceipt
     return toResult(summary, total, currency);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.warn("[analyzeReceipt] OpenAI Responses API (PDF) feilet:", msg);
+    console.warn("[analyzeReceipt] OpenAI PDF (base64) feilet:", msg);
     return STUB_RESULT;
   }
+}
+
+async function analyzePdfWithResponsesApi(bytes: Buffer): Promise<AnalyzeReceiptResult> {
+  try {
+    const result = await analyzePdfWithFilesApi(bytes);
+    if (result.summary !== "Kvittering" || result.totalCents != null) {
+      return result;
+    }
+  } catch {
+    // Files API feilet, prøv base64
+  }
+  return analyzePdfWithBase64(bytes);
 }
 
 export async function analyzeReceipt(
