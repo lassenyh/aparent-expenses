@@ -237,31 +237,35 @@ export async function POST(
 
     const resendKey = process.env.RESEND_API_KEY;
     if (resendKey) {
-      const resend = new Resend(resendKey);
-      const diffLabel =
-        diffCents > 0
-          ? "Til utbetaling (Aparent skylder deg)"
-          : diffCents < 0
-            ? "Tilbakebetaling (du skylder Aparent)"
-            : "I balanse";
-      // Resend krever verifisert avsender. Bruk onboarding@resend.dev for testing, eller RESEND_FROM med eget domene.
-      const fromAddress =
-        process.env.RESEND_FROM ?? "Utlegg <onboarding@resend.dev>";
-      const projectPrefix = [updated.projectNumber?.trim(), updated.project?.trim()]
-        .filter(Boolean)
-        .join(" – ");
-      const projectPrefixForFilename = [updated.projectNumber?.trim(), updated.project?.trim()]
-        .filter(Boolean)
-        .join(" ")
-        .replace(/[/\\:*?"<>|]/g, "")
-        .replace(/\s+/g, "_") || "utlegg";
-      const subjectParts = projectPrefix ? [projectPrefix, updated.name?.trim()].filter(Boolean) : [updated.name?.trim()].filter(Boolean);
-      const subject = subjectParts.length > 0 ? subjectParts.join(" – ") : "Utlegg";
-      const { data, error } = await resend.emails.send({
-        from: fromAddress,
-        to: adminEmail,
-        subject,
-        html: `
+      try {
+        const resend = new Resend(resendKey);
+        const diffLabel =
+          diffCents > 0
+            ? "Til utbetaling (Aparent skylder deg)"
+            : diffCents < 0
+              ? "Tilbakebetaling (du skylder Aparent)"
+              : "I balanse";
+        const fromAddress =
+          process.env.RESEND_FROM ?? "Utlegg <onboarding@resend.dev>";
+        const projectPrefix = [updated.projectNumber?.trim(), updated.project?.trim()]
+          .filter(Boolean)
+          .join(" – ");
+        const projectPrefixForFilename = [updated.projectNumber?.trim(), updated.project?.trim()]
+          .filter(Boolean)
+          .join(" ")
+          .replace(/[/\\:*?"<>|]/g, "")
+          .replace(/\s+/g, "_") || "utlegg";
+        const subjectParts = projectPrefix ? [projectPrefix, updated.name?.trim()].filter(Boolean) : [updated.name?.trim()].filter(Boolean);
+        const subject = subjectParts.length > 0 ? subjectParts.join(" – ") : "Utlegg";
+        const pdfAttachment = {
+          filename: `${projectPrefixForFilename}_utlegg.pdf`,
+          content: Buffer.from(pdfBytes).toString("base64"),
+        };
+        const { data, error } = await resend.emails.send({
+          from: fromAddress,
+          to: adminEmail,
+          subject,
+          html: `
           <p><strong>Navn:</strong> ${updated.name ?? "—"}</p>
           <p><strong>Prosjekt:</strong> ${projectPrefix || "—"}</p>
           <p><strong>Total:</strong> ${(totalCents / 100).toFixed(2)} kr</p>
@@ -269,21 +273,19 @@ export async function POST(
           <p><strong>${diffLabel}:</strong> ${(diffCents / 100).toFixed(2)} kr</p>
           <p>PDF er vedlagt. Du kan også <a href="${pdfDownloadUrl}">laste ned her</a>.</p>
         `,
-        attachments: [
-          {
-            filename: `${projectPrefixForFilename}_utlegg.pdf`,
-            content: Buffer.from(pdfBytes),
-          },
-        ],
-      });
-      if (error) {
-        console.error("[submit] Resend e-post feilet:", error);
-      } else {
-        console.log("[submit] E-post sendt til", adminEmail, "id:", data?.id);
+          attachments: [pdfAttachment],
+        });
+        if (error) {
+          console.error("[submit] Resend e-post feilet:", error);
+        } else {
+          console.log("[submit] E-post sendt til", adminEmail, "id:", data?.id);
+        }
+      } catch (emailErr) {
+        console.error("[submit] E-post send kastet:", emailErr);
       }
     } else {
       console.warn(
-        "[submit] RESEND_API_KEY er ikke satt – e-post til admin ble ikke sendt. Legg til RESEND_API_KEY i .env for å aktivere e-post."
+        "[submit] RESEND_API_KEY er ikke satt – e-post til admin ble ikke sendt."
       );
     }
 
