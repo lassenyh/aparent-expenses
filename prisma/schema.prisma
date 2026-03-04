@@ -1,0 +1,51 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum SubmissionStatus {
+  DRAFT
+  REVIEW
+  SUBMITTED
+}
+
+model Submission {
+  id              String           @id @default(cuid())
+  accessToken     String           @unique
+  createdAt       DateTime         @default(now())
+  status          SubmissionStatus @default(DRAFT)
+  name            String?
+  projectNumber   String?
+  project         String?
+  workDate        DateTime?
+  productionCash  Int?
+  accountNumber   String?
+  totalInclVat    Int?
+  combinedPdfUrl  String?
+  receipts        Receipt[]
+}
+
+model Receipt {
+  id                  String     @id @default(cuid())
+  submissionId        String
+  submission          Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  originalFileName    String
+  mimeType            String
+  sizeBytes           Int
+  blobUrl             String
+  blobPath            String
+  createdAt           DateTime   @default(now())
+  extractedSummary   String?
+  extractedTotalCents Int?
+  extractedCurrency   String?    @default("NOK")
+  originalAmountCents Int?       // amount in original currency (for display when different from NOK)
+  comment               String?
+  commentFlags          String? // JSON array e.g. ["MEAL","TRANSPORT"]
+  dismissedCommentFlags String? // JSON array e.g. ["TRANSPORT"]
+}
