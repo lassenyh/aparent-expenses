@@ -596,11 +596,12 @@ export function ReviewEditor({
                 </span>
               </label>
               <input
-                type="text"
+                type="number"
+                inputMode="numeric"
                 value={projectNumber}
                 onChange={(e) => setProjectNumber(e.target.value)}
                 disabled={isSubmitted}
-                className="min-w-28 w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-white placeholder-neutral-500 focus:border-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-500 disabled:opacity-60 sm:min-w-32"
+                className="min-w-28 w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-white placeholder-neutral-500 focus:border-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-500 disabled:opacity-60 sm:min-w-32 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 placeholder="0"
               />
             </div>
@@ -660,10 +661,11 @@ export function ReviewEditor({
             </label>
             <input
               type="number"
+              inputMode="numeric"
               value={productionCash}
               onChange={(e) => setProductionCash(e.target.value)}
               disabled={isSubmitted}
-              className="w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-white placeholder-neutral-500 focus:border-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-500 disabled:opacity-60"
+              className="w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-white placeholder-neutral-500 focus:border-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-500 disabled:opacity-60 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               placeholder="0"
             />
           </div>
