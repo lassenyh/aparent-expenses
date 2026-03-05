@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { ReviewEditor } from "./ReviewEditor";
-import { SubmitEmailErrorNotice } from "./SubmitEmailErrorNotice";
 
 type Params = { token: string };
 type PageProps = {
@@ -71,9 +70,8 @@ export default async function ReviewPage(props: PageProps) {
             className="-mt-4 mb-12 h-12 w-auto max-w-[180px] object-contain"
           />
           <p className="mb-6 text-xl font-semibold text-green-400">
-            Utlegget er sendt inn.
+            Utlegget er sendt inn. Vennligst last ned PDF for egen kopi.
           </p>
-          <SubmitEmailErrorNotice />
           <div className="mb-6 flex flex-wrap justify-center gap-3">
             <a
               href={`/api/submissions/${token}/pdf`}
@@ -93,10 +91,10 @@ export default async function ReviewPage(props: PageProps) {
           <p className="text-sm text-neutral-400">
             Har du spørsmål vedrørende utlegg, kan disse rettes til{" "}
             <a
-              href="mailto:lasse@aparent.tv"
+              href="mailto:utlegg@aparent.tv"
               className="text-neutral-300 underline hover:text-white"
             >
-              lasse@aparent.tv
+              utlegg@aparent.tv
             </a>
           </p>
         </div>

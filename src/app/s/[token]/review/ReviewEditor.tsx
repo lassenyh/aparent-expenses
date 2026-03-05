@@ -433,16 +433,6 @@ export function ReviewEditor({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Innsending feilet");
       setCombinedPdfUrl(data.combinedPdfUrl);
-      if (data.emailSent === false && typeof window !== "undefined") {
-        try {
-          sessionStorage.setItem(
-            "submitEmailError",
-            data.emailError ?? "E-post kunne ikke sendes"
-          );
-        } catch {
-          // ignore
-        }
-      }
       router.refresh();
       // Beholder submitting=true så «Sender inn…» vises til router.refresh() bytter til suksesssiden (unngår blink).
     } catch (e) {
@@ -476,7 +466,7 @@ export function ReviewEditor({
         <>
           <section className="rounded-xl border border-green-800 bg-green-950/30 p-6">
             <p className="text-green-400 font-medium mb-2">
-              Utlegget er sendt inn.
+            Utlegget er sendt inn. Vennligst last ned PDF for egen kopi.
             </p>
             {displayPdfUrl && (
               <div className="flex flex-wrap gap-3">
@@ -502,10 +492,10 @@ export function ReviewEditor({
           <p className="text-sm text-neutral-400">
             Har du spørsmål vedrørende utlegg, kan disse rettes til{" "}
             <a
-              href="mailto:lasse@aparent.tv"
+              href="mailto:utlegg@aparent.tv"
               className="text-neutral-300 underline hover:text-white"
             >
-              lasse@aparent.tv
+              utlegg@aparent.tv
             </a>
           </p>
         </>
