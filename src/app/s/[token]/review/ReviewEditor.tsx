@@ -106,6 +106,8 @@ export function ReviewEditor({
   const commentTextareaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  /** Økes etter hver opplasting slik at kamera-input remountes (fiks for iOS som ellers ikke åpner kamera på nytt). */
+  const [cameraInputKey, setCameraInputKey] = useState(0);
 
   useEffect(() => {
     if (
@@ -356,7 +358,7 @@ export function ReviewEditor({
       } finally {
         setAddingReceipts(false);
         if (fileInputRef.current) fileInputRef.current.value = "";
-        if (cameraInputRef.current) cameraInputRef.current.value = "";
+        setCameraInputKey((k) => k + 1);
       }
     },
     [token, receipts, isSubmitted]
@@ -1137,16 +1139,19 @@ export function ReviewEditor({
               }}
             />
             <input
+              key={cameraInputKey}
               ref={cameraInputRef}
               type="file"
               accept="image/*,image/heic"
               capture="environment"
-              multiple
               className="hidden"
               aria-hidden
               onChange={(e) => {
-                handleAddFiles(e.target.files);
-                e.target.value = "";
+                const files = e.target.files;
+                if (files?.length) handleAddFiles(files);
+                setTimeout(() => {
+                  e.target.value = "";
+                }, 0);
               }}
             />
             <button
