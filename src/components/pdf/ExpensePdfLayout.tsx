@@ -76,8 +76,7 @@ export function ExpensePdfLayout({
     <div
       className="min-h-screen bg-white p-10 print:p-10 print:bg-white"
       style={{
-        fontFamily:
-          '-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif',
+        fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif',
       }}
     >
       <div className="mx-auto max-w-[720px] space-y-8 break-inside-avoid print:text-black print:bg-white">
