@@ -105,6 +105,7 @@ export function ReviewEditor({
   const commentSaveTimeoutRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const commentTextareaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (
@@ -355,6 +356,7 @@ export function ReviewEditor({
       } finally {
         setAddingReceipts(false);
         if (fileInputRef.current) fileInputRef.current.value = "";
+        if (cameraInputRef.current) cameraInputRef.current.value = "";
       }
     },
     [token, receipts, isSubmitted]
@@ -1134,6 +1136,19 @@ export function ReviewEditor({
                 e.target.value = "";
               }}
             />
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*,image/heic"
+              capture="environment"
+              multiple
+              className="hidden"
+              aria-hidden
+              onChange={(e) => {
+                handleAddFiles(e.target.files);
+                e.target.value = "";
+              }}
+            />
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
@@ -1141,6 +1156,15 @@ export function ReviewEditor({
               className="rounded-lg border border-neutral-600 bg-neutral-800 px-3 py-2 text-sm text-neutral-300 hover:border-neutral-500 hover:bg-neutral-700 hover:text-white disabled:opacity-50"
             >
               {addingReceipts ? "Laster opp og analyserer…" : "Legg til"}
+            </button>
+            <button
+              type="button"
+              onClick={() => cameraInputRef.current?.click()}
+              disabled={addingReceipts}
+              className="rounded-lg border border-neutral-600 bg-neutral-800 px-3 py-2 text-sm text-neutral-300 hover:border-neutral-500 hover:bg-neutral-700 hover:text-white disabled:opacity-50 md:hidden"
+              title="Åpne kamera for å ta et bilde til"
+            >
+              Ta flere bilder
             </button>
             <span className="hidden md:inline text-sm text-neutral-500">
               Dra filer hit for å legge til kvitteringer, eller bruk knappen.
