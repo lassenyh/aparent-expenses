@@ -12,12 +12,6 @@ type ReceiptItem = {
   blobUrl: string;
 };
 
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
 function isPdf(mime: string): boolean {
   return mime.toLowerCase().includes("pdf");
 }
@@ -168,8 +162,8 @@ export function UploadStep({
   };
 
   return (
-    <div className="w-full max-w-2xl space-y-6">
-      <section className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-6">
+    <div className="w-full min-w-0 max-w-2xl space-y-6">
+      <section className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-4 md:p-6">
         <div
           onDrop={handleDrop}
           onDragOver={handleDragOver}
@@ -209,13 +203,12 @@ export function UploadStep({
               key={r.id}
               className="flex items-center gap-3 rounded-lg border border-neutral-700 bg-neutral-800/50 px-3 py-2"
             >
-              <span className="text-xl">
+              <span className="text-xl shrink-0">
                 {isPdf(r.mimeType) ? "📄" : "🖼️"}
               </span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm text-white">{r.originalFileName}</p>
-                <p className="text-xs text-neutral-500">
-                  {r.mimeType} · {formatBytes(r.sizeBytes)}
+              <div className="min-w-0 flex-1 overflow-hidden">
+                <p className="truncate text-sm text-white" title={r.originalFileName}>
+                  {r.originalFileName}
                 </p>
               </div>
               <a
@@ -242,9 +235,9 @@ export function UploadStep({
               role="status"
               aria-label={`Laster opp ${fileName}`}
             >
-              <div className="flex items-center gap-3">
-                <span className="text-xl opacity-70">📤</span>
-                <p className="min-w-0 flex-1 truncate text-sm text-neutral-300">
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="text-xl opacity-70 shrink-0">📤</span>
+                <p className="min-w-0 flex-1 truncate text-sm text-neutral-300" title={fileName}>
                   {fileName}
                 </p>
                 <span className="text-xs text-neutral-500 shrink-0">

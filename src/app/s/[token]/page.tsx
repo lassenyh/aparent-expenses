@@ -59,8 +59,8 @@ export default async function SubmissionPage(props: PageProps) {
       {submission.status === "DRAFT" && (
         <>
           <div className="absolute inset-0 bg-neutral-950/70" aria-hidden />
-          <div className="relative z-10 flex min-h-screen w-full flex-col items-center justify-center px-10 pt-10 pb-10">
-            <div className="mx-auto flex w-full max-w-2xl flex-col items-center -mt-16">
+          <div className="relative z-10 flex min-h-screen w-full flex-col items-center justify-center px-4 pt-10 pb-10 md:px-10">
+            <div className="mx-auto flex w-full max-w-2xl flex-col items-center -mt-16 min-w-0">
             <div className="flex justify-center pb-16">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
