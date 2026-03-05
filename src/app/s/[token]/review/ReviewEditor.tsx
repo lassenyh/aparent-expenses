@@ -433,6 +433,16 @@ export function ReviewEditor({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Innsending feilet");
       setCombinedPdfUrl(data.combinedPdfUrl);
+      if (data.emailSent === false && typeof window !== "undefined") {
+        try {
+          sessionStorage.setItem(
+            "submitEmailError",
+            data.emailError ?? "E-post kunne ikke sendes"
+          );
+        } catch {
+          // ignore
+        }
+      }
       router.refresh();
       // Beholder submitting=true så «Sender inn…» vises til router.refresh() bytter til suksesssiden (unngår blink).
     } catch (e) {

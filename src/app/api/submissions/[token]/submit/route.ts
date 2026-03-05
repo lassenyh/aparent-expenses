@@ -235,6 +235,9 @@ export async function POST(
     const baseUrl = getBaseUrl(request);
     const pdfDownloadUrl = `${baseUrl}/api/submissions/${token}/pdf`;
 
+    let emailSent = false;
+    let emailError: string | null = null;
+
     const resendKey = process.env.RESEND_API_KEY;
     if (resendKey) {
       try {
@@ -276,27 +279,34 @@ export async function POST(
           attachments: [pdfAttachment],
         });
         if (error) {
-          console.error("[submit] Resend e-post feilet:", error);
           const err = error as { statusCode?: number; name?: string; message?: string };
+          emailError = err.message ?? "Ukjent Resend-feil";
+          console.error("[submit] Resend e-post feilet:", error, "til:", adminEmail);
           if (err.statusCode === 403 && err.name === "validation_error" && err.message?.includes("only send testing emails")) {
             console.error(
-              "[submit] Resend testmodus: Sett ADMIN_EMAIL til din egen e-postadresse (f.eks. lasse@aparent.tv) i Vercel, " +
-              "eller verifiser et domene på resend.com/domains og bruk RESEND_FROM med det domenet for å sende til andre."
+              "[submit] For å sende til utlegg@aparent.tv: Verifiser domenet aparent.tv på resend.com/domains, " +
+              "deretter sett RESEND_FROM i Vercel til f.eks. Utlegg <utlegg@aparent.tv>."
             );
           }
         } else {
+          emailSent = true;
           console.log("[submit] E-post sendt til", adminEmail, "id:", data?.id);
         }
       } catch (emailErr) {
+        const msg = emailErr instanceof Error ? emailErr.message : String(emailErr);
+        emailError = msg;
         console.error("[submit] E-post send kastet:", emailErr);
       }
     } else {
-      console.warn(
-        "[submit] RESEND_API_KEY er ikke satt – e-post til admin ble ikke sendt."
-      );
+      emailError = "RESEND_API_KEY er ikke satt";
+      console.warn("[submit] RESEND_API_KEY er ikke satt – e-post ble ikke sendt.");
     }
 
-    return NextResponse.json({ combinedPdfUrl: pdfDownloadUrl });
+    return NextResponse.json({
+      combinedPdfUrl: pdfDownloadUrl,
+      emailSent,
+      ...(emailError && { emailError }),
+    });
   } catch (error) {
     console.error("[submit]", error);
     return NextResponse.json(

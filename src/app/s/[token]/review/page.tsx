@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { ReviewEditor } from "./ReviewEditor";
+import { SubmitEmailErrorNotice } from "./SubmitEmailErrorNotice";
 
 type Params = { token: string };
 type PageProps = {
@@ -72,6 +73,7 @@ export default async function ReviewPage(props: PageProps) {
           <p className="mb-6 text-xl font-semibold text-green-400">
             Utlegget er sendt inn.
           </p>
+          <SubmitEmailErrorNotice />
           <div className="mb-6 flex flex-wrap justify-center gap-3">
             <a
               href={`/api/submissions/${token}/pdf`}
