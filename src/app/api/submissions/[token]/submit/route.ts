@@ -277,6 +277,13 @@ export async function POST(
         });
         if (error) {
           console.error("[submit] Resend e-post feilet:", error);
+          const err = error as { statusCode?: number; name?: string; message?: string };
+          if (err.statusCode === 403 && err.name === "validation_error" && err.message?.includes("only send testing emails")) {
+            console.error(
+              "[submit] Resend testmodus: Sett ADMIN_EMAIL til din egen e-postadresse (f.eks. lasse@aparent.tv) i Vercel, " +
+              "eller verifiser et domene på resend.com/domains og bruk RESEND_FROM med det domenet for å sende til andre."
+            );
+          }
         } else {
           console.log("[submit] E-post sendt til", adminEmail, "id:", data?.id);
         }

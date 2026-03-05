@@ -433,11 +433,10 @@ export function ReviewEditor({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Innsending feilet");
       setCombinedPdfUrl(data.combinedPdfUrl);
-      setSubmitSuccess(true);
       router.refresh();
+      // Beholder submitting=true så «Sender inn…» vises til router.refresh() bytter til suksesssiden (unngår blink).
     } catch (e) {
       setSubmitError((e as Error).message);
-    } finally {
       setSubmitting(false);
     }
   };
@@ -1129,7 +1128,7 @@ export function ReviewEditor({
             </h2>
             <div className="text-sm text-neutral-300 space-y-3 mb-6">
               <p>
-                Det ser ut som du har lagt til en kvittering som inneholder mat eller drikke. I så fall må du legge til en kommentar på hva og hvem det er til.
+                Det ser ut som du har lagt til en eller flere kvitteringer som inneholder mat eller drikke. I så fall må du legge til en kommentar på hva og hvem det er til.
               </p>
               <p className="text-neutral-400">
                 Eksempel på mat til opptak: <em>Mat og drikke til crew og aktører</em>
@@ -1186,7 +1185,7 @@ export function ReviewEditor({
                   id="confirm-sums"
                   checked={confirmCheckedSums}
                   onChange={(e) => setConfirmCheckedSums(e.target.checked)}
-                  className="mt-1 h-4 w-4 rounded border-neutral-600 bg-neutral-800 text-green-600 focus:ring-green-500"
+                  className="mt-1 h-5 w-5 min-h-5 min-w-5 shrink-0 rounded border-neutral-600 bg-neutral-800 text-green-600 focus:ring-green-500"
                 />
                 <label htmlFor="confirm-sums" className="text-sm text-neutral-300">
                   Jeg har dobbeltsjekket at summer og beskrivelser stemmer
@@ -1198,7 +1197,7 @@ export function ReviewEditor({
                   id="confirm-production"
                   checked={confirmCheckedProduction}
                   onChange={(e) => setConfirmCheckedProduction(e.target.checked)}
-                  className="mt-1 h-4 w-4 rounded border-neutral-600 bg-neutral-800 text-green-600 focus:ring-green-500"
+                  className="mt-1 h-5 w-5 min-h-5 min-w-5 shrink-0 rounded border-neutral-600 bg-neutral-800 text-green-600 focus:ring-green-500"
                 />
                 <label htmlFor="confirm-production" className="text-sm text-neutral-300">
                   Jeg har fylt inn om jeg har mottatt produksjonskasse (forskudd) eller ikke
@@ -1211,7 +1210,7 @@ export function ReviewEditor({
                     id="confirm-meal-comments"
                     checked={confirmCheckedMealComments}
                     onChange={(e) => setConfirmCheckedMealComments(e.target.checked)}
-                    className="mt-1 h-4 w-4 rounded border-neutral-600 bg-neutral-800 text-green-600 focus:ring-green-500"
+                    className="mt-1 h-5 w-5 min-h-5 min-w-5 shrink-0 rounded border-neutral-600 bg-neutral-800 text-green-600 focus:ring-green-500"
                   />
                   <label htmlFor="confirm-meal-comments" className="text-sm text-neutral-300">
                     Jeg har kommentert kvitteringer som inneholder mat/drikke
