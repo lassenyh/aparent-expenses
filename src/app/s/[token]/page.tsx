@@ -1,5 +1,4 @@
-import { notFound } from "next/navigation";
-import Link from "next/link";
+import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { UploadStep } from "./UploadStep";
 
@@ -19,6 +18,10 @@ export default async function SubmissionPage(props: PageProps) {
   });
 
   if (!submission) return notFound();
+
+  if (submission.status === "REVIEW" || submission.status === "SUBMITTED") {
+    redirect(`/s/${token}/review`);
+  }
 
   const receipts = submission.receipts.map((r) => ({
     id: r.id,
@@ -84,24 +87,6 @@ export default async function SubmissionPage(props: PageProps) {
             </div>
           </div>
         </>
-      )}
-
-      {(submission.status === "REVIEW" || submission.status === "SUBMITTED") && (
-        <div className="mx-auto max-w-4xl space-y-4">
-          <p className="text-neutral-400">
-            {submission.status === "REVIEW"
-              ? "Kvitteringene er lastet opp. Gå videre til gjennomgang."
-              : "Utlegget er sendt inn. Vennligst last ned PDF for egen kopi."}
-          </p>
-          <Link
-            href={`/s/${token}/review`}
-            className="inline-block rounded-lg bg-neutral-700 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-600"
-          >
-            {submission.status === "REVIEW"
-              ? "Gå til gjennomgang"
-              : "Se gjennomgang"}
-          </Link>
-        </div>
       )}
     </main>
   );
