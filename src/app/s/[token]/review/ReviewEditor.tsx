@@ -184,8 +184,8 @@ export function ReviewEditor({
   const validateAccount = () => {
     const digits = accountNumber.replace(/\D/g, "");
     if (accountNumber.trim() === "") {
-      setAccountError(null);
-      return true;
+      setAccountError("Kontonummer er påkrevd");
+      return false;
     }
     if (digits.length !== 11) {
       setAccountError("Kontonummer må være 11 sifre");
@@ -630,7 +630,7 @@ export function ReviewEditor({
           </div>
           <div>
             <label className="block text-sm text-neutral-400 mb-1">
-              Kontonummer (11 sifre)
+              Kontonummer (11 sifre) <span className="text-neutral-500">*</span>
             </label>
             <input
               type="text"

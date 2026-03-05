@@ -99,9 +99,14 @@ export async function POST(
     }
 
     const accountNumber = sanitizeAccountNumber(body.accountNumber);
-    if (body.accountNumber != null && body.accountNumber !== "" && !accountNumber) {
+    if (!accountNumber) {
       return NextResponse.json(
-        { error: "Kontonummer må være 11 sifre" },
+        {
+          error:
+            body.accountNumber == null || String(body.accountNumber).trim() === ""
+              ? "Kontonummer er påkrevd"
+              : "Kontonummer må være 11 sifre",
+        },
         { status: 400 }
       );
     }
