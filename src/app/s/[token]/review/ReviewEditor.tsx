@@ -717,43 +717,38 @@ export function ReviewEditor({
         <h2 className="text-lg font-medium text-neutral-200 mb-4">
           Kvitteringer
         </h2>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-neutral-700 text-left text-neutral-400">
-                <th className="w-8 pb-2 pr-2">#</th>
-                <th className="pb-2 pr-2">Beskrivelse</th>
-                <th className="pb-2 pr-2 text-right" />
-                <th className="pb-2 pr-2 text-right w-28">Handlinger</th>
-              </tr>
-            </thead>
-            <tbody>
-              {receipts.flatMap((r, i) => {
+        <div className="w-full text-sm">
+          {/* Desktop: column headers (hidden on mobile) */}
+          <div className="hidden md:grid md:grid-cols-[auto_1fr_auto_auto] md:gap-2 md:border-b md:border-neutral-700 md:pb-2 md:text-left md:text-neutral-400">
+            <div className="w-8">#</div>
+            <div>Beskrivelse</div>
+            <div className="text-right w-28">Beløp</div>
+            <div className="text-right">Handlinger</div>
+          </div>
+          {receipts.flatMap((r, i) => {
                 const isPending =
                   addingReceipts && r.extractedSummary == null;
                 if (isPending) {
                   return [
-                    <tr key={r.id} className="border-b border-neutral-800">
-                      <td colSpan={4} className="py-3 pr-2">
-                        <div className="flex items-center gap-3">
-                          <span className="text-neutral-500 text-sm">
-                            {i + 1}.
-                          </span>
-                          <div className="flex-1 min-w-0">
-                            <div className="h-2 w-full overflow-hidden rounded-full bg-neutral-800">
-                              <div
-                                className="h-full min-w-[30%] rounded-full bg-green-600 animate-analyze-progress"
-                                role="progressbar"
-                                aria-valuetext="Laster opp og analyserer"
-                              />
-                            </div>
+                    <div key={r.id} className="border-b border-neutral-800 py-3">
+                      <div className="flex items-center gap-3">
+                        <span className="text-neutral-500 text-sm shrink-0">
+                          {i + 1}.
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <div className="h-2 w-full overflow-hidden rounded-full bg-neutral-800">
+                            <div
+                              className="h-full min-w-[30%] rounded-full bg-green-600 animate-analyze-progress"
+                              role="progressbar"
+                              aria-valuetext="Laster opp og analyserer"
+                            />
                           </div>
-                          <span className="text-xs text-neutral-400 shrink-0">
-                            Laster opp og analyserer…
-                          </span>
                         </div>
-                      </td>
-                    </tr>,
+                        <span className="text-xs text-neutral-400 shrink-0">
+                          Laster opp og analyserer…
+                        </span>
+                      </div>
+                    </div>,
                   ];
                 }
                 const activeFlags = parseCommentFlags(r.commentFlags);
@@ -766,12 +761,57 @@ export function ReviewEditor({
                   mealModalClosedOnce &&
                   activeFlags.includes("MEAL") &&
                   !mealHighlightDismissedIds.has(r.id);
+                const amountInputProps = {
+                  type: "number" as const,
+                  min: 0,
+                  max: 10000,
+                  step: "0.01",
+                  value:
+                    r.id in amountInputs
+                      ? amountInputs[r.id]
+                      : r.extractedTotalCents != null
+                        ? (r.extractedTotalCents / 100).toFixed(2)
+                        : "",
+                  onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+                    const v = e.target.value;
+                    setAmountInputs((prev) => ({ ...prev, [r.id]: v }));
+                    if (v === "") {
+                      updateReceipt(r.id, { extractedTotalCents: null });
+                      return;
+                    }
+                    const num = parseFloat(v);
+                    if (!Number.isNaN(num) && num >= 0 && num <= 10000) {
+                      updateReceipt(r.id, {
+                        extractedTotalCents: Math.round(num * 100),
+                      });
+                    }
+                  },
+                  onBlur: (e: React.FocusEvent<HTMLInputElement>) => {
+                    const v = e.target.value.trim();
+                    if (v === "") return;
+                    const num = parseFloat(v);
+                    if (!Number.isNaN(num) && num >= 0 && num <= 10000) {
+                      setAmountInputs((prev) => {
+                        const next = { ...prev };
+                        next[r.id] = num.toFixed(2);
+                        return next;
+                      });
+                    }
+                  },
+                  disabled: isSubmitted,
+                  placeholder: "0.00",
+                };
+
                 return [
-                  <tr key={r.id} className={showComment ? "" : "border-b border-neutral-800"}>
-                    <td className="align-top w-8 py-2 pr-2 text-neutral-500">{i + 1}</td>
-                    <td className="align-top py-2 pr-2">
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-2 flex-wrap">
+                  <div
+                    key={r.id}
+                    className={`grid grid-cols-1 md:grid-cols-[auto_1fr_auto_auto] md:gap-2 md:items-start gap-2 py-3 md:py-2 ${showComment ? "" : "border-b border-neutral-800"}`}
+                  >
+                    {/* Mobile: row1 = # + description only, row2 = amount + NOK + icons. Desktop: grid cells */}
+                    <div className="flex flex-col gap-1.5 md:contents">
+                      <div className="flex items-center gap-2 min-w-0 flex-wrap md:contents">
+                        <span className="w-6 shrink-0 text-neutral-500 md:pt-0.5">{i + 1}</span>
+                        <div className="min-w-0 flex-1 flex flex-col gap-1 md:col-span-1 md:flex-row md:flex-wrap md:items-center">
                           <input
                             type="text"
                             value={r.extractedSummary ?? ""}
@@ -781,7 +821,7 @@ export function ReviewEditor({
                               })
                             }
                             disabled={isSubmitted}
-                            className="min-w-0 flex-1 rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-white focus:border-neutral-500 focus:outline-none"
+                            className="min-w-0 flex-1 h-8 rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-white focus:border-neutral-500 focus:outline-none w-full min-w-0"
                             placeholder="Beskrivelse"
                           />
                           {r.originalAmountCents != null &&
@@ -792,9 +832,9 @@ export function ReviewEditor({
                               </span>
                             )}
                           {activeFlags.includes("MEAL") && (
-                              <span className="inline-flex items-center gap-1 rounded bg-amber-900/50 pl-1.5 pr-0.5 py-0.5 text-xs text-amber-200">
-                                Mat/drikke
-                                {!isSubmitted && (
+                            <span className="hidden md:inline-flex items-center gap-1 rounded bg-amber-900/50 pl-1.5 pr-0.5 py-0.5 text-xs text-amber-200">
+                              Mat/drikke
+                              {!isSubmitted && (
                                 <button
                                   type="button"
                                   onClick={async () => {
@@ -835,216 +875,251 @@ export function ReviewEditor({
                                     <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-2.72 2.72a.75.75 0 1 0 1.06 1.06L10 11.06l2.72 2.72a.75.75 0 1 0 1.06-1.06L11.06 10l2.72-2.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 6.22Z" />
                                   </svg>
                                 </button>
-                                )}
-                              </span>
-                            )}
+                              )}
+                            </span>
+                          )}
+                          {/* Desktop: "Legg til kommentar" under description (inside this cell) */}
+                          {!showComment && !isSubmitted && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setCommentExpandedIds((prev) => new Set(prev).add(r.id));
+                                setCommentFieldCollapsedIds((prev) => {
+                                  const next = new Set(prev);
+                                  next.delete(r.id);
+                                  return next;
+                                });
+                              }}
+                              className="hidden md:block text-left text-xs text-gray-500 hover:underline mt-0.5 w-full"
+                            >
+                              Legg til kommentar
+                            </button>
+                          )}
                         </div>
-                        {!showComment && !isSubmitted && (
+                        {/* Desktop: amount in own grid cell */}
+                        <div className="hidden md:flex h-8 items-center justify-end gap-1">
+                          <input
+                            {...amountInputProps}
+                            className="h-8 w-28 rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-right text-white focus:border-neutral-500 focus:outline-none"
+                          />
+                          <span className="text-xs text-neutral-500 shrink-0">NOK</span>
+                        </div>
+                        {/* Desktop: preview + trash in grid column 4 */}
+                        <div className="hidden md:flex h-8 items-center justify-end gap-1 shrink-0 md:col-start-4">
                           <button
                             type="button"
-                            onClick={() => {
-                              setCommentExpandedIds((prev) =>
-                                new Set(prev).add(r.id)
-                              );
-                              setCommentFieldCollapsedIds((prev) => {
-                                const next = new Set(prev);
-                                next.delete(r.id);
-                                return next;
-                              });
-                            }}
-                            className="text-left text-xs text-gray-500 hover:underline"
+                            onClick={() => setPreviewReceipt(r)}
+                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border border-neutral-600 bg-neutral-800 px-2 py-1 text-neutral-300 hover:border-neutral-500 hover:text-white focus:border-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-500"
+                            title="Vis bilag"
+                            aria-label="Vis bilag"
                           >
-                            Legg til kommentar
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden>
+                              <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l3.328 3.329a.75.75 0 1 1-1.06 1.06l-3.329-3.328A7 7 0 0 1 2 9Z" clipRule="evenodd" />
+                            </svg>
                           </button>
-                        )}
-                      </div>
-                    </td>
-                  <td className="align-top py-2 pr-2 text-right">
-                    <div className="flex h-8 items-center justify-end gap-1">
-                        <input
-                          type="number"
-                          min={0}
-                          max={10000}
-                          step="0.01"
-                          value={
-                            r.id in amountInputs
-                              ? amountInputs[r.id]
-                              : r.extractedTotalCents != null
-                                ? (r.extractedTotalCents / 100).toFixed(2)
-                                : ""
-                          }
-                          onChange={(e) => {
-                            const v = e.target.value;
-                            setAmountInputs((prev) => ({ ...prev, [r.id]: v }));
-                            if (v === "") {
-                              updateReceipt(r.id, { extractedTotalCents: null });
-                              return;
-                            }
-                            const num = parseFloat(v);
-                            if (!Number.isNaN(num) && num >= 0 && num <= 10000) {
-                              updateReceipt(r.id, {
-                                extractedTotalCents: Math.round(num * 100),
-                              });
-                            }
-                          }}
-                          onBlur={(e) => {
-                            const v = e.target.value.trim();
-                            if (v === "") return;
-                            const num = parseFloat(v);
-                            if (!Number.isNaN(num) && num >= 0 && num <= 10000) {
-                              setAmountInputs((prev) => {
-                                const next = { ...prev };
-                                next[r.id] = num.toFixed(2);
-                                return next;
-                              });
-                            }
-                          }}
-                          disabled={isSubmitted}
-                          className="h-8 w-28 rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-right text-white focus:border-neutral-500 focus:outline-none"
-                          placeholder="0.00"
-                        />
-                        <span className="text-xs text-neutral-500 shrink-0">NOK</span>
-                    </div>
-                  </td>
-                  <td className="align-top py-2">
-                    <div className="flex h-8 items-center justify-end gap-1">
-                      <button
-                        type="button"
-                        onClick={() => setPreviewReceipt(r)}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded border border-neutral-600 bg-neutral-800 px-2 py-1 text-neutral-300 hover:border-neutral-500 hover:text-white focus:border-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-500"
-                        title="Vis bilag"
-                        aria-label="Vis bilag"
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          viewBox="0 0 20 20"
-                          fill="currentColor"
-                          className="h-4 w-4"
-                          aria-hidden
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l3.328 3.329a.75.75 0 1 1-1.06 1.06l-3.329-3.328A7 7 0 0 1 2 9Z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                      </button>
-                      {!isSubmitted && (
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteReceipt(r.id)}
-                          disabled={deletingId === r.id}
-                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-neutral-600 bg-neutral-800 text-neutral-400 hover:border-red-500/50 hover:bg-red-950/30 hover:text-red-400 focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500 disabled:opacity-50"
-                          title="Fjern bilag"
-                          aria-label="Fjern bilag"
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 20 20"
-                            fill="currentColor"
-                            className="h-4 w-4"
-                            aria-hidden
-                          >
-                            <path
-                              fillRule="evenodd"
-                              d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.518.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 0-1.5.06l.3 7.5a.75.75 0 1 0 1.5-.06l-.3-7.5Z"
-                              clipRule="evenodd"
-                            />
-                          </svg>
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>,
-                  showComment ? (
-                    <tr key={`${r.id}-comment`} className="border-b border-neutral-800">
-                      <td className="w-8 align-top pb-2 pr-2 pt-0" />
-                      <td colSpan={3} className="align-top pb-2 pr-2 pt-0">
-                        <div className="mt-1.5 flex min-h-7 items-center gap-0.5">
-                            <div
-                              className={showMealHighlight ? "meal-highlight-wrap flex min-h-7 max-w-[19.2rem] shrink flex-1 min-w-0 items-center rounded" : "flex min-h-7 max-w-[19.2rem] shrink flex-1 min-w-0 items-center"}
+                          {!isSubmitted && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteReceipt(r.id)}
+                              disabled={deletingId === r.id}
+                              className="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-neutral-600 bg-neutral-800 text-neutral-400 hover:border-red-500/50 hover:bg-red-950/30 hover:text-red-400 focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500 disabled:opacity-50"
+                              title="Fjern bilag"
+                              aria-label="Fjern bilag"
                             >
-                              <textarea
-                              ref={(el) => {
-                                commentTextareaRefs.current[r.id] = el;
-                                adjustCommentHeight(el);
-                              }}
-                              value={r.comment ?? ""}
-                              onChange={(e) => {
-                                const value = e.target.value;
-                                updateReceipt(r.id, {
-                                  comment: value || null,
-                                });
-                                scheduleCommentSave(r.id, value || null);
-                                adjustCommentHeight(e.target as HTMLTextAreaElement);
-                              }}
-                              disabled={isSubmitted}
-                              placeholder={
-                                activeFlags.includes("MEAL")
-                                  ? MEAL_COMMENT_PLACEHOLDER
-                                  : "Skriv en kommentar (valgfritt)…"
-                              }
-                              rows={1}
-                              className="min-h-7 w-full resize-none overflow-hidden rounded-md border border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.03)] px-2.5 py-1 text-xs text-white placeholder:text-[rgba(255,255,255,0.45)] focus:border-[rgba(255,255,255,0.25)] focus:outline-none focus:ring-1 focus:ring-[rgba(255,255,255,0.15)] disabled:opacity-60"
-                            />
-                            {showMealHighlight && (
-                              <div
-                                className="meal-highlight-border"
-                                onAnimationEnd={() => setMealHighlightDismissedIds((prev) => new Set(prev).add(r.id))}
-                                aria-hidden
-                              />
-                            )}
-                          </div>
+                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden>
+                                <path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.518.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 0-1.5.06l.3 7.5a.75.75 0 1 0 1.5-.06l-.3-7.5Z" clipRule="evenodd" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      {/* Mobile only: amount + NOK + Mat/drikke (if any) + preview + trash on one line */}
+                      <div className="flex items-center gap-2 md:hidden pl-8">
+                        <div className="flex h-8 items-center gap-1">
+                          <input
+                            {...amountInputProps}
+                            className="h-8 w-24 rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-right text-white focus:border-neutral-500 focus:outline-none"
+                          />
+                          <span className="text-xs text-neutral-500 shrink-0">NOK</span>
+                        </div>
+                        {activeFlags.includes("MEAL") && (
+                          <span className="inline-flex items-center gap-1 rounded bg-amber-900/50 pl-1.5 pr-0.5 py-0.5 text-xs text-amber-200 shrink-0">
+                            Mat/drikke
                             {!isSubmitted && (
                               <button
                                 type="button"
                                 onClick={async () => {
-                                  const flagsToDismiss = [...activeFlags];
-                                  for (const flag of flagsToDismiss) {
-                                    try {
-                                      await fetch(
-                                        `/api/receipts/${encodeURIComponent(r.id)}?token=${encodeURIComponent(token)}`,
-                                        {
-                                          method: "PATCH",
-                                          headers: { "Content-Type": "application/json" },
-                                          body: JSON.stringify({ dismissFlag: flag }),
-                                        }
+                                  try {
+                                    await fetch(
+                                      `/api/receipts/${encodeURIComponent(r.id)}?token=${encodeURIComponent(token)}`,
+                                      {
+                                        method: "PATCH",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({ dismissFlag: "MEAL" as SmartFlag }),
+                                      }
+                                    );
+                                    const flags = parseCommentFlags(r.commentFlags).filter((f) => f !== "MEAL");
+                                    const dismissed = [...parseCommentFlags(r.dismissedCommentFlags), "MEAL"];
+                                    updateReceipt(r.id, {
+                                      commentFlags: flags.length ? JSON.stringify(flags) : null,
+                                      dismissedCommentFlags: JSON.stringify(dismissed),
+                                    });
+                                    if (flags.length === 0) {
+                                      setCommentExpandedIds((prev) => {
+                                        const next = new Set(prev);
+                                        next.delete(r.id);
+                                        return next;
+                                      });
+                                      setCommentFieldCollapsedIds((prev) =>
+                                        new Set(prev).add(r.id)
                                       );
-                                    } catch {
-                                      // ignore
                                     }
+                                  } catch {
+                                    // ignore
                                   }
-                                  const dismissed = [...parseCommentFlags(r.dismissedCommentFlags), ...flagsToDismiss];
-                                  updateReceipt(r.id, {
-                                    comment: null,
-                                    commentFlags: null,
-                                    dismissedCommentFlags: JSON.stringify(dismissed),
-                                  });
-                                  scheduleCommentSave(r.id, null);
-                                  setCommentExpandedIds((prev) => {
-                                    const next = new Set(prev);
-                                    next.delete(r.id);
-                                    return next;
-                                  });
-                                  setCommentFieldCollapsedIds((prev) =>
-                                    new Set(prev).add(r.id)
-                                  );
                                 }}
-                                className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-base leading-none text-gray-500 opacity-70 hover:opacity-100 hover:text-gray-300 focus:outline-none"
-                                title="Fjern kommentar"
-                                aria-label="Fjern kommentar"
+                                className="rounded p-0.5 hover:bg-amber-800/50 text-amber-200 hover:text-white"
+                                title="Fjern tag"
+                                aria-label="Fjern Mat/drikke"
                               >
-                                ×
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5">
+                                  <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-2.72 2.72a.75.75 0 1 0 1.06 1.06L10 11.06l2.72 2.72a.75.75 0 1 0 1.06-1.06L11.06 10l2.72-2.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 6.22Z" />
+                                </svg>
                               </button>
                             )}
+                          </span>
+                        )}
+                        <div className="flex h-8 items-center gap-1 shrink-0 ml-auto">
+                          <button
+                            type="button"
+                            onClick={() => setPreviewReceipt(r)}
+                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border border-neutral-600 bg-neutral-800 px-2 py-1 text-neutral-300 hover:border-neutral-500 hover:text-white focus:border-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-500"
+                            title="Vis bilag"
+                            aria-label="Vis bilag"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden>
+                              <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l3.328 3.329a.75.75 0 1 1-1.06 1.06l-3.329-3.328A7 7 0 0 1 2 9Z" clipRule="evenodd" />
+                            </svg>
+                          </button>
+                          {!isSubmitted && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteReceipt(r.id)}
+                              disabled={deletingId === r.id}
+                              className="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-neutral-600 bg-neutral-800 text-neutral-400 hover:border-red-500/50 hover:bg-red-950/30 hover:text-red-400 focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500 disabled:opacity-50"
+                              title="Fjern bilag"
+                              aria-label="Fjern bilag"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden>
+                                <path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.518.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 0-1.5.06l.3 7.5a.75.75 0 1 0 1.5-.06l-.3-7.5Z" clipRule="evenodd" />
+                              </svg>
+                            </button>
+                          )}
                         </div>
-                      </td>
-                    </tr>
+                      </div>
+                      {/* Mobile: "Legg til kommentar" on its own row (align left with description) */}
+                      {!showComment && !isSubmitted && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCommentExpandedIds((prev) => new Set(prev).add(r.id));
+                            setCommentFieldCollapsedIds((prev) => {
+                              const next = new Set(prev);
+                              next.delete(r.id);
+                              return next;
+                            });
+                          }}
+                          className="text-left text-xs text-neutral-400 hover:text-white hover:underline md:hidden pl-8"
+                        >
+                          Legg til kommentar
+                        </button>
+                      )}
+                    </div>
+                  </div>,
+                  showComment ? (
+                    <div key={`${r.id}-comment`} className="col-span-1 md:col-span-4 border-b border-neutral-800 pb-2 pt-0 pl-8 md:pl-0">
+                      <div className="mt-1.5 flex min-h-7 items-center gap-0.5 min-w-0">
+                        <div
+                          className={showMealHighlight ? "meal-highlight-wrap flex min-h-7 w-full min-w-0 max-w-full md:max-w-[19.2rem] shrink flex-1 items-center rounded" : "flex min-h-7 w-full min-w-0 max-w-full md:max-w-[19.2rem] shrink flex-1 items-center"}
+                        >
+                          <textarea
+                            ref={(el) => {
+                              commentTextareaRefs.current[r.id] = el;
+                              adjustCommentHeight(el);
+                            }}
+                            value={r.comment ?? ""}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              updateReceipt(r.id, {
+                                comment: value || null,
+                              });
+                              scheduleCommentSave(r.id, value || null);
+                              adjustCommentHeight(e.target as HTMLTextAreaElement);
+                            }}
+                            disabled={isSubmitted}
+                            placeholder={
+                              activeFlags.includes("MEAL")
+                                ? MEAL_COMMENT_PLACEHOLDER
+                                : "Skriv en kommentar (valgfritt)…"
+                            }
+                            rows={1}
+                            className="min-h-7 w-full min-w-0 resize-none overflow-hidden rounded-md border border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.03)] px-2.5 py-1 text-xs text-white placeholder:text-[rgba(255,255,255,0.45)] focus:border-[rgba(255,255,255,0.25)] focus:outline-none focus:ring-1 focus:ring-[rgba(255,255,255,0.15)] disabled:opacity-60"
+                          />
+                          {showMealHighlight && (
+                            <div
+                              className="meal-highlight-border"
+                              onAnimationEnd={() => setMealHighlightDismissedIds((prev) => new Set(prev).add(r.id))}
+                              aria-hidden
+                            />
+                          )}
+                        </div>
+                        {!isSubmitted && (
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              const flagsToDismiss = [...activeFlags];
+                              for (const flag of flagsToDismiss) {
+                                try {
+                                  await fetch(
+                                    `/api/receipts/${encodeURIComponent(r.id)}?token=${encodeURIComponent(token)}`,
+                                    {
+                                      method: "PATCH",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({ dismissFlag: flag }),
+                                    }
+                                  );
+                                } catch {
+                                  // ignore
+                                }
+                              }
+                              const dismissed = [...parseCommentFlags(r.dismissedCommentFlags), ...flagsToDismiss];
+                              updateReceipt(r.id, {
+                                comment: null,
+                                commentFlags: null,
+                                dismissedCommentFlags: JSON.stringify(dismissed),
+                              });
+                              scheduleCommentSave(r.id, null);
+                              setCommentExpandedIds((prev) => {
+                                const next = new Set(prev);
+                                next.delete(r.id);
+                                return next;
+                              });
+                              setCommentFieldCollapsedIds((prev) =>
+                                new Set(prev).add(r.id)
+                              );
+                            }}
+                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-base leading-none text-gray-500 opacity-70 hover:opacity-100 hover:text-gray-300 focus:outline-none"
+                            title="Fjern kommentar"
+                            aria-label="Fjern kommentar"
+                          >
+                            ×
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   ) : null,
                 ];
               })}
-            </tbody>
-          </table>
         </div>
         {!isSubmitted && (
           <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -1067,7 +1142,7 @@ export function ReviewEditor({
             >
               {addingReceipts ? "Laster opp og analyserer…" : "Legg til"}
             </button>
-            <span className="text-sm text-neutral-500">
+            <span className="hidden md:inline text-sm text-neutral-500">
               Dra filer hit for å legge til kvitteringer, eller bruk knappen.
             </span>
             {addError && (
