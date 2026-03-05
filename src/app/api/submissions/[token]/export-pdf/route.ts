@@ -177,13 +177,14 @@ export async function POST(
       .replace(/[/\\:*?"<>|]/g, "")
       .replace(/\s+/g, "_") || "utlegg";
     const filename = `${projectPrefixForFilename}_utlegg.pdf`;
+    const pdfUint8 = new Uint8Array(pdfBytes);
 
-    return new NextResponse(pdfBytes, {
+    return new NextResponse(pdfUint8, {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `attachment; filename="${filename}"`,
-        "Content-Length": String(pdfBytes.length),
+        "Content-Length": String(pdfUint8.byteLength),
       },
     });
   } catch (error) {
