@@ -91,7 +91,7 @@ export default async function SubmissionPage(props: PageProps) {
           <p className="text-neutral-400">
             {submission.status === "REVIEW"
               ? "Kvitteringene er lastet opp. Gå videre til gjennomgang."
-              : "Utlegget er sendt inn."}
+              : "Utlegget er sendt inn. Vennligst last ned PDF for egen kopi."}
           </p>
           <Link
             href={`/s/${token}/review`}

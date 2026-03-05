@@ -447,9 +447,11 @@ export function SubmissionEditor({
             </button>
           </>
         )}
-        {submitSuccess && (
-          <p className="text-green-400 font-medium">Utlegget er sendt inn.</p>
-        )}
+           {submitSuccess && (
+     <p className="text-green-400 font-medium">
+       Utlegget er sendt inn. Vennligst last ned PDF for egen kopi.
+     </p>
+   )}
         {submitError && (
           <p className="text-sm text-red-400">{submitError}</p>
         )}
