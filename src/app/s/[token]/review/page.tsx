@@ -148,7 +148,7 @@ export default async function ReviewPage(props: PageProps) {
     >
       <div className="absolute inset-0 bg-neutral-950/85" aria-hidden />
       <div className="relative z-10 mx-auto max-w-4xl">
-        <div className="mb-6 flex flex-col items-center gap-4 md:flex-row md:items-start md:justify-between md:gap-4">
+        <div className="mb-6 flex flex-col items-center gap-8 md:flex-row md:items-start md:justify-between md:gap-4">
           <img
             src="/logo.png"
             alt="Logo"
