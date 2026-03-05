@@ -813,8 +813,8 @@ export function ReviewEditor({
                   >
                     {/* Mobile: row1 = # + description only, row2 = amount + NOK + icons. Desktop: grid cells */}
                     <div className="flex flex-col gap-1.5 md:contents">
-                      <div className="flex items-center gap-2 min-w-0 flex-wrap md:contents">
-                        <span className="w-6 shrink-0 text-neutral-500 md:pt-0.5">{i + 1}</span>
+                      <div className="flex items-center gap-1 min-w-0 flex-wrap md:contents md:gap-2">
+                        <span className="w-4 shrink-0 text-neutral-500 text-sm md:w-6 md:text-base md:pt-0.5">{i + 1}</span>
                         <div className="min-w-0 flex-1 flex flex-col gap-1 md:col-span-1 md:flex-row md:flex-wrap md:items-center">
                           <input
                             type="text"
@@ -938,7 +938,7 @@ export function ReviewEditor({
                         </div>
                       </div>
                       {/* Mobile only: amount + NOK + Mat/drikke (if any) + preview + trash on one line */}
-                      <div className="flex items-center gap-2 md:hidden pl-8">
+                      <div className="flex items-center gap-2 md:hidden pl-5">
                         <div className="flex h-8 items-center gap-1">
                           <input
                             {...amountInputProps}
@@ -1033,7 +1033,7 @@ export function ReviewEditor({
                               return next;
                             });
                           }}
-                          className="text-left text-xs text-neutral-400 hover:text-white hover:underline md:hidden pl-8"
+                          className="text-left text-xs text-neutral-400 hover:text-white hover:underline md:hidden pl-5"
                         >
                           Legg til kommentar
                         </button>
@@ -1041,7 +1041,7 @@ export function ReviewEditor({
                     </div>
                   </div>,
                   showComment ? (
-                    <div key={`${r.id}-comment`} className="col-span-1 md:col-span-4 border-b border-neutral-800 pb-2 pt-0 pl-8 md:pl-0">
+                    <div key={`${r.id}-comment`} className="col-span-1 md:col-span-4 border-b border-neutral-800 pb-2 pt-0 pl-5 md:pl-0">
                       <div className="mt-1.5 flex min-h-7 items-center gap-0.5 min-w-0">
                         <div
                           className={showMealHighlight ? "meal-highlight-wrap flex min-h-7 w-full min-w-0 max-w-full md:max-w-[19.2rem] shrink flex-1 items-center rounded" : "flex min-h-7 w-full min-w-0 max-w-full md:max-w-[19.2rem] shrink flex-1 items-center"}
