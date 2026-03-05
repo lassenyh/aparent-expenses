@@ -933,16 +933,9 @@ export function ReviewEditor({
                           )}
                         </div>
                       </div>
-                      {/* Mobile only: amount + NOK + Mat/drikke (if any) + preview + trash on one line */}
-                      <div className="flex items-center gap-2 md:hidden pl-5">
-                        <div className="flex h-8 items-center gap-1">
-                          <input
-                            {...amountInputProps}
-                            className="h-8 w-24 rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-right text-white focus:border-neutral-500 focus:outline-none"
-                          />
-                          <span className="text-xs text-neutral-500 shrink-0">NOK</span>
-                        </div>
-                        {activeFlags.includes("MEAL") && (
+                      {/* Mobile only: Mat/drikke på egen linje under beskrivelse (gir mer plass til beløp + ikoner) */}
+                      {activeFlags.includes("MEAL") && (
+                        <div className="flex items-center gap-2 md:hidden pl-5">
                           <span className="inline-flex items-center gap-1 rounded bg-amber-900/50 pl-1.5 pr-0.5 py-0.5 text-xs text-amber-200 shrink-0">
                             Mat/drikke
                             {!isSubmitted && (
@@ -988,7 +981,17 @@ export function ReviewEditor({
                               </button>
                             )}
                           </span>
-                        )}
+                        </div>
+                      )}
+                      {/* Mobile only: amount + NOK + preview + trash on one line */}
+                      <div className="flex items-center gap-2 md:hidden pl-5">
+                        <div className="flex h-8 items-center gap-1">
+                          <input
+                            {...amountInputProps}
+                            className="h-8 w-24 rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-right text-white focus:border-neutral-500 focus:outline-none"
+                          />
+                          <span className="text-xs text-neutral-500 shrink-0">NOK</span>
+                        </div>
                         <div className="flex h-8 items-center gap-1 shrink-0 ml-auto">
                           <button
                             type="button"
@@ -1171,9 +1174,9 @@ export function ReviewEditor({
             <dt className="text-neutral-400">Produksjonskasse</dt>
             <dd className="text-white">{formatNok(productionCashCents)}</dd>
           </div>
-          <div className="flex justify-between pt-2 border-t border-neutral-700">
-            <dt className="text-neutral-400">{diffLabel(diffCents)}</dt>
-            <dd className="text-white font-medium">
+          <div className="flex justify-between items-start gap-2 pt-2 border-t border-neutral-700">
+            <dt className="text-neutral-400 min-w-0">{diffLabel(diffCents)}</dt>
+            <dd className="text-white font-medium whitespace-nowrap shrink-0">
               {formatNok(diffCents)}
             </dd>
           </div>
@@ -1369,10 +1372,10 @@ export function ReviewEditor({
                 <dt className="text-neutral-400">Produksjonskasse</dt>
                 <dd className="text-white">{formatNok(productionCashCents)}</dd>
               </div>
-              <div className="flex justify-between pt-2 border-t border-neutral-700">
-                <dt className="text-neutral-400">{diffLabel(diffCents)}</dt>
+              <div className="flex justify-between items-start gap-2 pt-2 border-t border-neutral-700">
+                <dt className="text-neutral-400 min-w-0">{diffLabel(diffCents)}</dt>
                 <dd
-                  className={`font-medium ${
+                  className={`font-medium whitespace-nowrap shrink-0 ${
                     diffCents > 0
                       ? "text-green-400"
                       : diffCents < 0

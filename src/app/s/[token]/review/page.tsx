@@ -148,13 +148,13 @@ export default async function ReviewPage(props: PageProps) {
     >
       <div className="absolute inset-0 bg-neutral-950/85" aria-hidden />
       <div className="relative z-10 mx-auto max-w-4xl">
-        <div className="mb-6 flex items-start justify-between gap-4">
+        <div className="mb-6 flex flex-col items-center gap-2 md:flex-row md:items-start md:justify-between md:gap-4">
           <img
             src="/logo.png"
             alt="Logo"
             className="h-10 w-auto max-w-[140px] shrink-0 object-contain"
           />
-          <h1 className="text-2xl font-semibold">
+          <h1 className="text-xl font-semibold text-center whitespace-nowrap md:text-2xl md:text-left">
             Gjennomgang og innsending
           </h1>
         </div>
