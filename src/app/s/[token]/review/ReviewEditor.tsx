@@ -105,9 +105,6 @@ export function ReviewEditor({
   const commentSaveTimeoutRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const commentTextareaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
-  /** Økes etter hver opplasting slik at kamera-input remountes (fiks for iOS som ellers ikke åpner kamera på nytt). */
-  const [cameraInputKey, setCameraInputKey] = useState(0);
 
   useEffect(() => {
     if (
@@ -358,7 +355,6 @@ export function ReviewEditor({
       } finally {
         setAddingReceipts(false);
         if (fileInputRef.current) fileInputRef.current.value = "";
-        setCameraInputKey((k) => k + 1);
       }
     },
     [token, receipts, isSubmitted]
@@ -629,7 +625,7 @@ export function ReviewEditor({
               value={workDate}
               onChange={(e) => setWorkDate(e.target.value)}
               disabled={isSubmitted}
-              className="w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-white focus:border-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-500 disabled:opacity-60"
+              className="h-8 w-full max-w-[12rem] md:max-w-none rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-1 text-white focus:border-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-500 disabled:opacity-60"
             />
           </div>
           <div>
@@ -1138,22 +1134,6 @@ export function ReviewEditor({
                 e.target.value = "";
               }}
             />
-            <input
-              key={cameraInputKey}
-              ref={cameraInputRef}
-              type="file"
-              accept="image/*,image/heic"
-              capture="environment"
-              className="hidden"
-              aria-hidden
-              onChange={(e) => {
-                const files = e.target.files;
-                if (files?.length) handleAddFiles(files);
-                setTimeout(() => {
-                  e.target.value = "";
-                }, 0);
-              }}
-            />
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
@@ -1161,15 +1141,6 @@ export function ReviewEditor({
               className="rounded-lg border border-neutral-600 bg-neutral-800 px-3 py-2 text-sm text-neutral-300 hover:border-neutral-500 hover:bg-neutral-700 hover:text-white disabled:opacity-50"
             >
               {addingReceipts ? "Laster opp og analyserer…" : "Legg til"}
-            </button>
-            <button
-              type="button"
-              onClick={() => cameraInputRef.current?.click()}
-              disabled={addingReceipts}
-              className="rounded-lg border border-neutral-600 bg-neutral-800 px-3 py-2 text-sm text-neutral-300 hover:border-neutral-500 hover:bg-neutral-700 hover:text-white disabled:opacity-50 md:hidden"
-              title="Åpne kamera for å ta et bilde til"
-            >
-              Ta flere bilder
             </button>
             <span className="hidden md:inline text-sm text-neutral-500">
               Dra filer hit for å legge til kvitteringer, eller bruk knappen.
