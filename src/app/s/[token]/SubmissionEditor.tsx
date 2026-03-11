@@ -63,6 +63,7 @@ export function SubmissionEditor({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const workDateInputRef = useRef<HTMLInputElement>(null);
 
   const isSubmitted = initialData.status === "SUBMITTED" || submitSuccess;
   const isLocked = isSubmitted;
@@ -298,6 +299,7 @@ export function SubmissionEditor({
           <div>
             <label htmlFor="personinfo-workDate" className="block text-sm text-neutral-400 mb-1">Dato</label>
             <input
+              ref={workDateInputRef}
               id="personinfo-workDate"
               name="workDate"
               type="date"
@@ -305,8 +307,9 @@ export function SubmissionEditor({
               value={workDate}
               onChange={(e) => setWorkDate(e.target.value)}
               onBlur={handleSave}
+              onClick={() => workDateInputRef.current?.showPicker?.()}
               disabled={isLocked}
-              className="w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-white focus:border-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-500 disabled:opacity-60"
+              className="w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-white focus:border-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-500 disabled:opacity-60 cursor-pointer"
             />
           </div>
           <div>

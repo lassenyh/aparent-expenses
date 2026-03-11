@@ -105,6 +105,7 @@ export function ReviewEditor({
   const commentSaveTimeoutRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const commentTextareaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const workDateInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (
@@ -631,14 +632,16 @@ export function ReviewEditor({
           <div>
             <label htmlFor="personinfo-workDate" className="block text-sm text-neutral-400 mb-1">Dato</label>
             <input
+              ref={workDateInputRef}
               id="personinfo-workDate"
               name="workDate"
               type="date"
               autoComplete="off"
               value={workDate}
               onChange={(e) => setWorkDate(e.target.value)}
+              onClick={() => workDateInputRef.current?.showPicker?.()}
               disabled={isSubmitted}
-              className="h-8 w-full max-w-[12rem] md:max-w-none rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-1 text-white focus:border-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-500 disabled:opacity-60"
+              className="h-8 w-full max-w-[12rem] md:max-w-none rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-1 text-white focus:border-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-500 disabled:opacity-60 cursor-pointer"
             />
           </div>
           <div>
