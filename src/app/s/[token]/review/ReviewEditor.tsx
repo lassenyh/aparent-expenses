@@ -4,7 +4,6 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { upload } from "@vercel/blob/client";
 import { parseCommentFlags, type SmartFlag } from "@/lib/receipts/smartComment";
-import { convertToNokCentsClient } from "@/lib/currencyRates";
 import { REPAYMENT_ACCOUNT_NUMBER } from "@/lib/constants";
 
 const PREVIEW_STORAGE_KEY = "expense-preview";
@@ -129,41 +128,6 @@ export function ReviewEditor({
       setShowTransportInfoModal(true);
     }
   }, []);
-
-  const convertedToNokIdsRef = useRef<Set<string>>(new Set());
-  useEffect(() => {
-    receipts.forEach((r) => {
-      if (convertedToNokIdsRef.current.has(r.id)) return;
-      if (
-        r.originalAmountCents != null &&
-        r.extractedCurrency &&
-        r.extractedCurrency.toUpperCase() !== "NOK" &&
-        r.extractedTotalCents == null
-      ) {
-        const nokCents = convertToNokCentsClient(
-          r.originalAmountCents,
-          r.extractedCurrency
-        );
-        if (nokCents != null) {
-          convertedToNokIdsRef.current.add(r.id);
-          fetch(
-            `/api/receipts/${encodeURIComponent(r.id)}?token=${encodeURIComponent(token)}`,
-            {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ extractedTotalCents: nokCents }),
-            }
-          ).catch(() => {});
-          setReceipts((prev) =>
-            prev.map((rec) =>
-              rec.id === r.id ? { ...rec, extractedTotalCents: nokCents } : rec
-            )
-          );
-        }
-      }
-    });
-  }, [receipts, token]);
-
   const adjustCommentHeight = useCallback((el: HTMLTextAreaElement | null) => {
     if (!el) return;
     el.style.height = "auto";
@@ -185,78 +149,7 @@ export function ReviewEditor({
   const totalCents = receipts.reduce(
     (s, r) => s + (r.extractedTotalCents ?? 0),
     0
-  );
-  const convertedFromForeignCents = receipts.reduce(
-    (s, r) => s + (r.originalAmountCents != null ? (r.extractedTotalCents ?? 0) : 0),
-    0
-  );
-  const productionCashCents = Math.round(
-    (Number(productionCash) || 0) * 100
-  );
-  const diffCents = totalCents - productionCashCents;
-
-  const validateAccount = () => {
-    const digits = accountNumber.replace(/\D/g, "");
-    if (accountNumber.trim() === "") {
-      setAccountError("Kontonummer er påkrevd");
-      return false;
-    }
-    if (digits.length !== 11) {
-      setAccountError("Kontonummer må være 11 sifre");
-      return false;
-    }
-    setAccountError(null);
-    return true;
-  };
-
-  const mapToReceiptRow = (r: {
-    id: string;
-    originalFileName: string;
-    extractedSummary: string | null;
-    extractedTotalCents: number | null;
-    extractedCurrency?: string | null;
-    originalAmountCents?: number | null;
-    blobUrl: string;
-    mimeType: string;
-    comment?: string | null;
-    commentFlags?: string | null;
-    dismissedCommentFlags?: string | null;
-  }): ReceiptRow => ({
-    id: r.id,
-    originalFileName: r.originalFileName,
-    extractedSummary: r.extractedSummary ?? null,
-    extractedTotalCents: r.extractedTotalCents ?? null,
-    extractedCurrency: r.extractedCurrency ?? null,
-    originalAmountCents: r.originalAmountCents ?? null,
-    blobUrl: r.blobUrl,
-    mimeType: r.mimeType,
-    comment: r.comment ?? null,
-    commentFlags: r.commentFlags ?? null,
-    dismissedCommentFlags: r.dismissedCommentFlags ?? null,
-  });
-
-  const scheduleCommentSave = useCallback(
-    (id: string, comment: string | null) => {
-      if (commentSaveTimeoutRef.current[id]) {
-        clearTimeout(commentSaveTimeoutRef.current[id]);
-      }
-      commentSaveTimeoutRef.current[id] = setTimeout(async () => {
-        try {
-          const res = await fetch(
-            `/api/receipts/${encodeURIComponent(id)}?token=${encodeURIComponent(token)}`,
-            {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ comment: comment?.trim() || null }),
-            }
-          );
-          if (!res.ok) throw new Error("Kunne ikke lagre kommentar");
-        } catch {
-          // Optional: could set a per-receipt error state
-        }
-        delete commentSaveTimeoutRef.current[id];
-      }, 500);
-    },
+  );    },
     [token]
   );
 
@@ -1313,14 +1206,7 @@ export function ReviewEditor({
           <div className="flex justify-between">
             <dt className="text-neutral-400">Total</dt>
             <dd className="text-white">{formatNok(totalCents)}</dd>
-          </div>
-          {convertedFromForeignCents > 0 && (
-            <div className="flex justify-between text-neutral-400">
-              <dt className="text-neutral-500">Inkl. konvertert fra annen valuta</dt>
-              <dd className="text-neutral-400">{formatNok(convertedFromForeignCents)}</dd>
-            </div>
-          )}
-          <div className="flex justify-between">
+          </div>          <div className="flex justify-between">
             <dt className="text-neutral-400">Produksjonskasse</dt>
             <dd className="text-white">{formatNok(productionCashCents)}</dd>
           </div>

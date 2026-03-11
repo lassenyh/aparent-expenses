@@ -96,10 +96,9 @@ function toResult(
       originalAmountCents: null,
     };
   }
-  const nokCents = convertToNokCents(originalCents, currency);
   return {
     summary,
-    totalCents: nokCents ?? null,
+    totalCents: null,
     currency,
     originalAmountCents: originalCents,
   };
