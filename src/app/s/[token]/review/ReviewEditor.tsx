@@ -290,11 +290,16 @@ export function ReviewEditor({
           if (mapped.some((r: ReceiptRow) => parseCommentFlags(r.commentFlags).includes("TRANSPORT"))) {
             setShowTransportInfoModal(true);
           }
-          const firstForeign = mapped.find(
-            (r) =>
+          let firstForeign: ReceiptRow | undefined;
+          for (const r of mapped as ReceiptRow[]) {
+            if (
               r.extractedCurrency &&
               r.extractedCurrency.toUpperCase() !== "NOK"
-          );
+            ) {
+              firstForeign = r;
+              break;
+            }
+          }
           if (firstForeign) {
             setForeignCurrencyCode(firstForeign.extractedCurrency?.toUpperCase() ?? null);
             setShowCurrencyInfoModal(true);
