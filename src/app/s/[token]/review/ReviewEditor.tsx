@@ -1184,7 +1184,7 @@ export function ReviewEditor({
                     <div key={`${r.id}-comment`} className="col-span-1 md:col-span-4 border-b border-neutral-800 pb-2 pt-0 pl-5 md:pl-0">
                       <div className="mt-1.5 flex min-h-7 items-center gap-0.5 min-w-0">
                         <div
-                          className={showMealHighlight ? "meal-highlight-wrap flex min-h-7 w-full min-w-0 max-w-full md:max-w-[19.2rem] shrink flex-1 items-center rounded" : "flex min-h-7 w-full min-w-0 max-w-full md:max-w-[19.2rem] shrink flex-1 items-center"}
+                          className={showMealHighlight || showTransportHighlight ? "meal-highlight-wrap flex min-h-7 w-full min-w-0 max-w-full md:max-w-[19.2rem] shrink flex-1 items-center rounded" : "flex min-h-7 w-full min-w-0 max-w-full md:max-w-[19.2rem] shrink flex-1 items-center"}
                         >
                           <textarea
                             ref={(el) => {
