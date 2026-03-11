@@ -318,7 +318,7 @@ export function SubmissionEditor({
               name="accountNumber"
               type="text"
               inputMode="numeric"
-              autoComplete="tel"
+              autoComplete="off"
               value={accountNumber}
               onChange={(e) => {
                 setAccountNumber(e.target.value);
