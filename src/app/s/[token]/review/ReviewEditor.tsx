@@ -167,6 +167,12 @@ export function ReviewEditor({
     0
   );
 
+  const productionCashCents = Math.round(
+    (Number(productionCash) || 0) * 100
+  );
+
+  const diffCents = totalCents - productionCashCents;
+
   const handleDeleteReceipt = useCallback(
     async (receiptId: string) => {
       if (isSubmitted) return;
@@ -283,6 +289,42 @@ export function ReviewEditor({
     },
     [token, receipts, isSubmitted]
   );
+
+  const scheduleCommentSave = useCallback(
+    (id: string, comment: string | null) => {
+      const existing = commentSaveTimeoutRef.current[id];
+      if (existing) clearTimeout(existing);
+      commentSaveTimeoutRef.current[id] = setTimeout(() => {
+        fetch(
+          `/api/receipts/${encodeURIComponent(id)}?token=${encodeURIComponent(
+            token
+          )}`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ comment }),
+          }
+        ).catch(() => {
+          // be silent on background save errors; user can resubmit
+        });
+      }, 400);
+    },
+    [token]
+  );
+
+  const validateAccount = useCallback(() => {
+    const digits = accountNumber.replace(/\D/g, "");
+    if (accountNumber.trim() === "") {
+      setAccountError(null);
+      return false;
+    }
+    if (digits.length !== 11) {
+      setAccountError("Kontonummer må være 11 sifre");
+      return false;
+    }
+    setAccountError(null);
+    return true;
+  }, [accountNumber]);
 
   const canOpenConfirm = () => {
     if (!validateAccount()) return false;
@@ -1470,12 +1512,6 @@ export function ReviewEditor({
                 <dt className="text-neutral-400">Total</dt>
                 <dd className="text-white">{formatNok(totalCents)}</dd>
               </div>
-              {convertedFromForeignCents > 0 && (
-                <div className="flex justify-between text-neutral-400">
-                  <dt className="text-neutral-500">Inkl. konvertert fra annen valuta</dt>
-                  <dd className="text-neutral-400">{formatNok(convertedFromForeignCents)}</dd>
-                </div>
-              )}
               <div className="flex justify-between">
                 <dt className="text-neutral-400">Produksjonskasse</dt>
                 <dd className="text-white">{formatNok(productionCashCents)}</dd>
