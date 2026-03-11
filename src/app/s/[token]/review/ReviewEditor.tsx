@@ -123,6 +123,8 @@ export function ReviewEditor({
   const [transportHighlightDismissedIds, setTransportHighlightDismissedIds] = useState<Set<string>>(() => new Set());
   const [transportModalClosedOnce, setTransportModalClosedOnce] = useState(false);
   const [showTransportInfoModal, setShowTransportInfoModal] = useState(false);
+  const [showCurrencyInfoModal, setShowCurrencyInfoModal] = useState(false);
+  const [foreignCurrencyCode, setForeignCurrencyCode] = useState<string | null>(null);
   const commentSaveTimeoutRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const commentTextareaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -142,6 +144,15 @@ export function ReviewEditor({
       )
     ) {
       setShowTransportInfoModal(true);
+    }
+    const firstForeign = initialData.receipts.find(
+      (r) =>
+        r.extractedCurrency &&
+        r.extractedCurrency.toUpperCase() !== "NOK"
+    );
+    if (firstForeign) {
+      setForeignCurrencyCode(firstForeign.extractedCurrency?.toUpperCase() ?? null);
+      setShowCurrencyInfoModal(true);
     }
   }, []);
   const adjustCommentHeight = useCallback((el: HTMLTextAreaElement | null) => {
@@ -278,6 +289,15 @@ export function ReviewEditor({
           }
           if (mapped.some((r: ReceiptRow) => parseCommentFlags(r.commentFlags).includes("TRANSPORT"))) {
             setShowTransportInfoModal(true);
+          }
+          const firstForeign = mapped.find(
+            (r) =>
+              r.extractedCurrency &&
+              r.extractedCurrency.toUpperCase() !== "NOK"
+          );
+          if (firstForeign) {
+            setForeignCurrencyCode(firstForeign.extractedCurrency?.toUpperCase() ?? null);
+            setShowCurrencyInfoModal(true);
           }
         }
       } catch (e) {
@@ -1423,6 +1443,45 @@ export function ReviewEditor({
                   setShowTransportInfoModal(false);
                   setTimeout(() => setTransportModalClosedOnce(true), 150);
                 }}
+                className="rounded-lg bg-neutral-700 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-600"
+              >
+                Lukk
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCurrencyInfoModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="currency-info-modal-title"
+        >
+          <div
+            className="w-full max-w-md rounded-xl border border-neutral-700 bg-neutral-900 p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2
+              id="currency-info-modal-title"
+              className="mb-4 text-lg font-bold text-white"
+            >
+              Kvittering i {foreignCurrencyCode ?? "utenlandsk valuta"}
+            </h2>
+            <div className="text-sm text-neutral-300 space-y-3 mb-6">
+              <p>
+                Du har lagt til en kvittering i{" "}
+                {foreignCurrencyCode ?? "utenlandsk valuta"}. Skriv inn beløpet i NOK i feltet for beløp.
+              </p>
+              <p className="text-neutral-400">
+                Beløpet i {foreignCurrencyCode ?? "opprinnelig valuta"} vises kun som referanse og blir ikke automatisk omregnet.
+              </p>
+            </div>
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowCurrencyInfoModal(false)}
                 className="rounded-lg bg-neutral-700 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-600"
               >
                 Lukk
