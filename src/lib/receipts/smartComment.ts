@@ -43,7 +43,11 @@ const TRANSPORT_KEYWORDS = [
   "taxi", "buss", "tog", "fly", "bompenger", "bom", "easy park", "easypark",
   "park", "fuel", "diesel", "bensinstasjon", "tank", "reisekostnad",
   "reisekostnader", "kjøregodtgjørelse", "kjøring", "kjøre", "bil",
-  "pendling", "kollektiv", "flytog", "vy", "ruter", "snn", "sas", "norwegian",
+  "pendling", "kollektiv", "flytog", "flytoget",
+  "vy", "ruter", "snn", "sas", "norwegian", "entur",
+  "atb", "skyss", "kolumbus", "fram", "nettbuss", "nor-way", "flixbus", "flix",
+  "nsb", "go-ahead", "sj", "brakar", "troms fylkestrafikk",
+  "airport", "flyplass", "flybuss", "flybussen", "oslo lufthavn", "gardermoen",
 ];
 
 function normalize(s: string): string {
