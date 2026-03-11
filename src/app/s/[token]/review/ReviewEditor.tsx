@@ -776,7 +776,6 @@ export function ReviewEditor({
                   !mealHighlightDismissedIds.has(r.id);
                 const showTransportHighlight =
                   !isSubmitted &&
-                  !showTransportInfoModal &&
                   transportModalClosedOnce &&
                   activeFlags.includes("TRANSPORT") &&
                   !transportHighlightDismissedIds.has(r.id);
