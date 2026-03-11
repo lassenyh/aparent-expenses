@@ -27,6 +27,22 @@ type ReceiptRow = {
   dismissedCommentFlags: string | null;
 };
 
+function mapToReceiptRow(r: any): ReceiptRow {
+  return {
+    id: r.id,
+    originalFileName: r.originalFileName,
+    extractedSummary: r.extractedSummary ?? null,
+    extractedTotalCents: r.extractedTotalCents ?? null,
+    extractedCurrency: r.extractedCurrency ?? null,
+    originalAmountCents: r.originalAmountCents ?? null,
+    blobUrl: r.blobUrl,
+    mimeType: r.mimeType,
+    comment: r.comment ?? null,
+    commentFlags: r.commentFlags ?? null,
+    dismissedCommentFlags: r.dismissedCommentFlags ?? null,
+  };
+}
+
 type InitialData = {
   status: string;
   name: string | null;
