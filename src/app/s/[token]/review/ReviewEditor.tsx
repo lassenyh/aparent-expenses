@@ -149,8 +149,6 @@ export function ReviewEditor({
   const totalCents = receipts.reduce(
     (s, r) => s + (r.extractedTotalCents ?? 0),
     0
-  );    },
-    [token]
   );
 
   const handleDeleteReceipt = useCallback(
