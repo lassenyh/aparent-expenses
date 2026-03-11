@@ -46,7 +46,7 @@ export function SubmissionEditor({
   const [workDate, setWorkDate] = useState(
     initialData.workDate
       ? new Date(initialData.workDate).toISOString().slice(0, 10)
-      : ""
+      : new Date().toISOString().slice(0, 10)
   );
   const [productionCash, setProductionCash] = useState(
     initialData.productionCash ?? ""
