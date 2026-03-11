@@ -560,9 +560,12 @@ export function ReviewEditor({
         </h2>
         <div className="grid gap-4">
           <div>
-            <label className="block text-sm text-neutral-400 mb-1">Navn</label>
+            <label htmlFor="personinfo-name" className="block text-sm text-neutral-400 mb-1">Navn</label>
             <input
+              id="personinfo-name"
+              name="name"
               type="text"
+              autoComplete="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               disabled={isSubmitted}
@@ -572,7 +575,7 @@ export function ReviewEditor({
           </div>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-[auto_1fr]">
             <div className="min-w-0">
-              <label className="mb-1 flex items-center gap-1.5 text-sm text-neutral-400">
+              <label htmlFor="personinfo-projectNumber" className="mb-1 flex items-center gap-1.5 text-sm text-neutral-400">
                 Prosjektnummer
                 <span className="group relative inline-flex">
                   <span className="inline-flex cursor-default text-neutral-500 hover:text-neutral-300" aria-label="Prosjektnummer finnes i email, eller fås av produsent.">
@@ -596,8 +599,11 @@ export function ReviewEditor({
                 </span>
               </label>
               <input
+                id="personinfo-projectNumber"
+                name="projectNumber"
                 type="number"
                 inputMode="numeric"
+                autoComplete="off"
                 value={projectNumber}
                 onChange={(e) => setProjectNumber(e.target.value)}
                 disabled={isSubmitted}
@@ -610,7 +616,10 @@ export function ReviewEditor({
                 Prosjektnavn
               </label>
               <input
+                id="personinfo-project"
+                name="project"
                 type="text"
+                autoComplete="off"
                 value={project}
                 onChange={(e) => setProject(e.target.value)}
                 disabled={isSubmitted}
@@ -620,9 +629,12 @@ export function ReviewEditor({
             </div>
           </div>
           <div>
-            <label className="block text-sm text-neutral-400 mb-1">Dato</label>
+            <label htmlFor="personinfo-workDate" className="block text-sm text-neutral-400 mb-1">Dato</label>
             <input
+              id="personinfo-workDate"
+              name="workDate"
               type="date"
+              autoComplete="off"
               value={workDate}
               onChange={(e) => setWorkDate(e.target.value)}
               disabled={isSubmitted}
@@ -630,12 +642,15 @@ export function ReviewEditor({
             />
           </div>
           <div>
-            <label className="block text-sm text-neutral-400 mb-1">
+            <label htmlFor="personinfo-accountNumber" className="block text-sm text-neutral-400 mb-1">
               Kontonummer (11 sifre) <span className="text-neutral-500">*</span>
             </label>
             <input
+              id="personinfo-accountNumber"
+              name="accountNumber"
               type="text"
               inputMode="numeric"
+              autoComplete="tel"
               value={accountNumber}
               onChange={(e) => {
                 setAccountNumber(e.target.value);
@@ -656,12 +671,15 @@ export function ReviewEditor({
             )}
           </div>
           <div>
-            <label className="block text-sm text-neutral-400 mb-1">
+            <label htmlFor="personinfo-productionCash" className="block text-sm text-neutral-400 mb-1">
               Prod.penger / forskudd (NOK)
             </label>
             <input
+              id="personinfo-productionCash"
+              name="productionCash"
               type="number"
               inputMode="numeric"
+              autoComplete="off"
               value={productionCash}
               onChange={(e) => setProductionCash(e.target.value)}
               disabled={isSubmitted}

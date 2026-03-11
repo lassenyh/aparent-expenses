@@ -244,9 +244,12 @@ export function SubmissionEditor({
         </h2>
         <div className="grid gap-4">
           <div>
-            <label className="block text-sm text-neutral-400 mb-1">Navn</label>
+            <label htmlFor="personinfo-name" className="block text-sm text-neutral-400 mb-1">Navn</label>
             <input
+              id="personinfo-name"
+              name="name"
               type="text"
+              autoComplete="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               onBlur={handleSave}
@@ -257,12 +260,15 @@ export function SubmissionEditor({
           </div>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-[auto_1fr]">
             <div className="min-w-0">
-              <label className="mb-1 block text-sm text-neutral-400">
+              <label htmlFor="personinfo-projectNumber" className="mb-1 block text-sm text-neutral-400">
                 Prosjektnummer
               </label>
               <input
+                id="personinfo-projectNumber"
+                name="projectNumber"
                 type="number"
                 inputMode="numeric"
+                autoComplete="off"
                 value={projectNumber}
                 onChange={(e) => setProjectNumber(e.target.value)}
                 onBlur={handleSave}
@@ -272,11 +278,14 @@ export function SubmissionEditor({
               />
             </div>
             <div className="min-w-0">
-              <label className="block text-sm text-neutral-400 mb-1">
+              <label htmlFor="personinfo-project" className="block text-sm text-neutral-400 mb-1">
                 Prosjektnavn
               </label>
               <input
+                id="personinfo-project"
+                name="project"
                 type="text"
+                autoComplete="off"
                 value={project}
                 onChange={(e) => setProject(e.target.value)}
                 onBlur={handleSave}
@@ -287,9 +296,12 @@ export function SubmissionEditor({
             </div>
           </div>
           <div>
-            <label className="block text-sm text-neutral-400 mb-1">Dato</label>
+            <label htmlFor="personinfo-workDate" className="block text-sm text-neutral-400 mb-1">Dato</label>
             <input
+              id="personinfo-workDate"
+              name="workDate"
               type="date"
+              autoComplete="off"
               value={workDate}
               onChange={(e) => setWorkDate(e.target.value)}
               onBlur={handleSave}
@@ -298,12 +310,15 @@ export function SubmissionEditor({
             />
           </div>
           <div>
-            <label className="block text-sm text-neutral-400 mb-1">
+            <label htmlFor="personinfo-accountNumber" className="block text-sm text-neutral-400 mb-1">
               Kontonummer (11 sifre)
             </label>
             <input
+              id="personinfo-accountNumber"
+              name="accountNumber"
               type="text"
               inputMode="numeric"
+              autoComplete="tel"
               value={accountNumber}
               onChange={(e) => {
                 setAccountNumber(e.target.value);
@@ -324,12 +339,15 @@ export function SubmissionEditor({
             )}
           </div>
           <div>
-            <label className="block text-sm text-neutral-400 mb-1">
+            <label htmlFor="personinfo-productionCash" className="block text-sm text-neutral-400 mb-1">
               Prod.penger (kr)
             </label>
             <input
+              id="personinfo-productionCash"
+              name="productionCash"
               type="number"
               inputMode="numeric"
+              autoComplete="off"
               value={productionCash}
               onChange={(e) => setProductionCash(e.target.value)}
               onBlur={handleSave}
