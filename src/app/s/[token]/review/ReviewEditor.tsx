@@ -768,15 +768,27 @@ export function ReviewEditor({
                 const showComment =
                   (activeFlags.length > 0 && !commentFieldCollapsedIds.has(r.id)) ||
                   commentExpandedIds.has(r.id);
+                const hasAnyMeal = receipts.some((rec) =>
+                  parseCommentFlags(rec.commentFlags).includes("MEAL")
+                );
+                const hasAnyTransport = receipts.some((rec) =>
+                  parseCommentFlags(rec.commentFlags).includes("TRANSPORT")
+                );
+                const allInfoModalsClosed =
+                  (mealModalClosedOnce || !hasAnyMeal) &&
+                  (transportModalClosedOnce || !hasAnyTransport);
                 const showMealHighlight =
                   !isSubmitted &&
                   !showMealInfoModal &&
-                  mealModalClosedOnce &&
+                  !showTransportInfoModal &&
+                  allInfoModalsClosed &&
                   activeFlags.includes("MEAL") &&
                   !mealHighlightDismissedIds.has(r.id);
                 const showTransportHighlight =
                   !isSubmitted &&
-                  transportModalClosedOnce &&
+                  !showMealInfoModal &&
+                  !showTransportInfoModal &&
+                  allInfoModalsClosed &&
                   activeFlags.includes("TRANSPORT") &&
                   !transportHighlightDismissedIds.has(r.id);
                 const amountInputProps = {
