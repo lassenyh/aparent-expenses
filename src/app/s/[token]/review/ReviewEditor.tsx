@@ -11,6 +11,8 @@ const PREVIEW_STORAGE_KEY = "expense-preview";
 
 const MEAL_COMMENT_PLACEHOLDER =
   "Forslag: Catering til filmarbeidere og statister";
+const TRANSPORT_COMMENT_PLACEHOLDER =
+  "Forslag: Reise til/fra opptak, eller beskriv formål";
 
 type ReceiptRow = {
   id: string;
@@ -86,6 +88,7 @@ export function ReviewEditor({
   const [confirmCheckedSums, setConfirmCheckedSums] = useState(false);
   const [confirmCheckedProduction, setConfirmCheckedProduction] = useState(false);
   const [confirmCheckedMealComments, setConfirmCheckedMealComments] = useState(false);
+  const [confirmCheckedTransportComments, setConfirmCheckedTransportComments] = useState(false);
   const [isDraggingOverReceipts, setIsDraggingOverReceipts] = useState(false);
   const [commentExpandedIds, setCommentExpandedIds] = useState<Set<string>>(
     () =>
@@ -102,6 +105,9 @@ export function ReviewEditor({
   /** Satt til true når bruker lukker mat/drikke-popup – da starter pulseringsanimasjonen på kommentarfelt */
   const [mealModalClosedOnce, setMealModalClosedOnce] = useState(false);
   const [showMealInfoModal, setShowMealInfoModal] = useState(false);
+  const [transportHighlightDismissedIds, setTransportHighlightDismissedIds] = useState<Set<string>>(() => new Set());
+  const [transportModalClosedOnce, setTransportModalClosedOnce] = useState(false);
+  const [showTransportInfoModal, setShowTransportInfoModal] = useState(false);
   const commentSaveTimeoutRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const commentTextareaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -114,6 +120,13 @@ export function ReviewEditor({
       )
     ) {
       setShowMealInfoModal(true);
+    }
+    if (
+      initialData.receipts.some((r) =>
+        parseCommentFlags(r.commentFlags).includes("TRANSPORT")
+      )
+    ) {
+      setShowTransportInfoModal(true);
     }
   }, []);
 
@@ -349,6 +362,9 @@ export function ReviewEditor({
           });
           if (mapped.some((r: ReceiptRow) => parseCommentFlags(r.commentFlags).includes("MEAL"))) {
             setShowMealInfoModal(true);
+          }
+          if (mapped.some((r: ReceiptRow) => parseCommentFlags(r.commentFlags).includes("TRANSPORT"))) {
+            setShowTransportInfoModal(true);
           }
         }
       } catch (e) {
@@ -784,6 +800,12 @@ export function ReviewEditor({
                   mealModalClosedOnce &&
                   activeFlags.includes("MEAL") &&
                   !mealHighlightDismissedIds.has(r.id);
+                const showTransportHighlight =
+                  !isSubmitted &&
+                  !showTransportInfoModal &&
+                  transportModalClosedOnce &&
+                  activeFlags.includes("TRANSPORT") &&
+                  !transportHighlightDismissedIds.has(r.id);
                 const amountInputProps = {
                   type: "number" as const,
                   min: 0,
@@ -901,6 +923,53 @@ export function ReviewEditor({
                               )}
                             </span>
                           )}
+                          {activeFlags.includes("TRANSPORT") && (
+                            <span className="hidden md:inline-flex items-center gap-1 rounded bg-sky-900/50 pl-1.5 pr-0.5 py-0.5 text-xs text-sky-200">
+                              Reisekostnader
+                              {!isSubmitted && (
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    try {
+                                      await fetch(
+                                        `/api/receipts/${encodeURIComponent(r.id)}?token=${encodeURIComponent(token)}`,
+                                        {
+                                          method: "PATCH",
+                                          headers: { "Content-Type": "application/json" },
+                                          body: JSON.stringify({ dismissFlag: "TRANSPORT" as SmartFlag }),
+                                        }
+                                      );
+                                      const flags = parseCommentFlags(r.commentFlags).filter((f) => f !== "TRANSPORT");
+                                      const dismissed = [...parseCommentFlags(r.dismissedCommentFlags), "TRANSPORT"];
+                                      updateReceipt(r.id, {
+                                        commentFlags: flags.length ? JSON.stringify(flags) : null,
+                                        dismissedCommentFlags: JSON.stringify(dismissed),
+                                      });
+                                      if (flags.length === 0) {
+                                        setCommentExpandedIds((prev) => {
+                                          const next = new Set(prev);
+                                          next.delete(r.id);
+                                          return next;
+                                        });
+                                        setCommentFieldCollapsedIds((prev) =>
+                                          new Set(prev).add(r.id)
+                                        );
+                                      }
+                                    } catch {
+                                      // ignore
+                                    }
+                                  }}
+                                  className="rounded p-0.5 hover:bg-sky-800/50 text-sky-200 hover:text-white"
+                                  title="Fjern tag"
+                                  aria-label="Fjern Reisekostnader"
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5">
+                                    <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-2.72 2.72a.75.75 0 1 0 1.06 1.06L10 11.06l2.72 2.72a.75.75 0 1 0 1.06-1.06L11.06 10l2.72-2.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 6.22Z" />
+                                  </svg>
+                                </button>
+                              )}
+                            </span>
+                          )}
                           {/* Desktop: "Legg til kommentar" under description (inside this cell) */}
                           {!showComment && !isSubmitted && (
                             <button
@@ -1006,6 +1075,55 @@ export function ReviewEditor({
                           </span>
                         </div>
                       )}
+                      {activeFlags.includes("TRANSPORT") && (
+                        <div className="flex items-center gap-2 md:hidden pl-5">
+                          <span className="inline-flex items-center gap-1 rounded bg-sky-900/50 pl-1.5 pr-0.5 py-0.5 text-xs text-sky-200 shrink-0">
+                            Reisekostnader
+                            {!isSubmitted && (
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  try {
+                                    await fetch(
+                                      `/api/receipts/${encodeURIComponent(r.id)}?token=${encodeURIComponent(token)}`,
+                                      {
+                                        method: "PATCH",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({ dismissFlag: "TRANSPORT" as SmartFlag }),
+                                      }
+                                    );
+                                    const flags = parseCommentFlags(r.commentFlags).filter((f) => f !== "TRANSPORT");
+                                    const dismissed = [...parseCommentFlags(r.dismissedCommentFlags), "TRANSPORT"];
+                                    updateReceipt(r.id, {
+                                      commentFlags: flags.length ? JSON.stringify(flags) : null,
+                                      dismissedCommentFlags: JSON.stringify(dismissed),
+                                    });
+                                    if (flags.length === 0) {
+                                      setCommentExpandedIds((prev) => {
+                                        const next = new Set(prev);
+                                        next.delete(r.id);
+                                        return next;
+                                      });
+                                      setCommentFieldCollapsedIds((prev) =>
+                                        new Set(prev).add(r.id)
+                                      );
+                                    }
+                                  } catch {
+                                    // ignore
+                                  }
+                                }}
+                                className="rounded p-0.5 hover:bg-sky-800/50 text-sky-200 hover:text-white"
+                                title="Fjern tag"
+                                aria-label="Fjern Reisekostnader"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5">
+                                  <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-2.72 2.72a.75.75 0 1 0 1.06 1.06L10 11.06l2.72 2.72a.75.75 0 1 0 1.06-1.06L11.06 10l2.72-2.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 6.22Z" />
+                                </svg>
+                              </button>
+                            )}
+                          </span>
+                        </div>
+                      )}
                       {/* Mobile only: amount + NOK + preview + trash on one line */}
                       <div className="flex items-center gap-2 md:hidden pl-5">
                         <div className="flex h-8 items-center gap-1">
@@ -1086,7 +1204,9 @@ export function ReviewEditor({
                             placeholder={
                               activeFlags.includes("MEAL")
                                 ? MEAL_COMMENT_PLACEHOLDER
-                                : "Skriv en kommentar (valgfritt)…"
+                                : activeFlags.includes("TRANSPORT")
+                                  ? TRANSPORT_COMMENT_PLACEHOLDER
+                                  : "Skriv en kommentar (valgfritt)…"
                             }
                             rows={1}
                             className="min-h-7 w-full min-w-0 resize-none overflow-hidden rounded-md border border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.03)] px-2.5 py-1 text-xs text-white placeholder:text-[rgba(255,255,255,0.45)] focus:border-[rgba(255,255,255,0.25)] focus:outline-none focus:ring-1 focus:ring-[rgba(255,255,255,0.15)] disabled:opacity-60"
@@ -1095,6 +1215,13 @@ export function ReviewEditor({
                             <div
                               className="meal-highlight-border"
                               onAnimationEnd={() => setMealHighlightDismissedIds((prev) => new Set(prev).add(r.id))}
+                              aria-hidden
+                            />
+                          )}
+                          {showTransportHighlight && (
+                            <div
+                              className="meal-highlight-border"
+                              onAnimationEnd={() => setTransportHighlightDismissedIds((prev) => new Set(prev).add(r.id))}
                               aria-hidden
                             />
                           )}
@@ -1319,6 +1446,50 @@ export function ReviewEditor({
         </div>
       )}
 
+      {showTransportInfoModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="transport-info-modal-title"
+        >
+          <div
+            className="w-full max-w-md rounded-xl border border-neutral-700 bg-neutral-900 p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2
+              id="transport-info-modal-title"
+              className="mb-4 text-lg font-bold text-white"
+            >
+              Reisekostnader
+            </h2>
+            <div className="text-sm text-neutral-300 space-y-3 mb-6">
+              <p>
+                Det ser ut som du har lagt til en eller flere kvitteringer som kan være reisekostnader (f.eks. parkering, bensin, taxi, kollektiv). Legg gjerne til en kort kommentar om formålet.
+              </p>
+              <p className="text-neutral-400">
+                Eksempel: <em>Reise til/fra opptak</em> eller <em>Parkering under innspilling</em>
+              </p>
+              <p>
+                Hvis kvitteringen ikke er en reisekostnad, fjerner du taggen eller kommentarfeltet.
+              </p>
+            </div>
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowTransportInfoModal(false);
+                  setTimeout(() => setTransportModalClosedOnce(true), 150);
+                }}
+                className="rounded-lg bg-neutral-700 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-600"
+              >
+                Lukk
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showConfirmModal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
@@ -1379,6 +1550,20 @@ export function ReviewEditor({
                   </label>
                 </li>
               )}
+              {receipts.some((r) => parseCommentFlags(r.commentFlags).includes("TRANSPORT")) && (
+                <li className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    id="confirm-transport-comments"
+                    checked={confirmCheckedTransportComments}
+                    onChange={(e) => setConfirmCheckedTransportComments(e.target.checked)}
+                    className="mt-1 h-5 w-5 min-h-5 min-w-5 shrink-0 rounded border-neutral-600 bg-neutral-800 text-green-600 focus:ring-green-500"
+                  />
+                  <label htmlFor="confirm-transport-comments" className="text-sm text-neutral-300">
+                    Jeg har kommentert kvitteringer som inneholder reisekostnader
+                  </label>
+                </li>
+              )}
             </ul>
             <dl className="space-y-2 text-sm mb-6 p-4 rounded-lg bg-neutral-800/50">
               <div className="flex justify-between">
@@ -1428,12 +1613,14 @@ export function ReviewEditor({
                 type="button"
                 onClick={() => {
                   const mealOk = !receipts.some((r) => parseCommentFlags(r.commentFlags).includes("MEAL")) || confirmCheckedMealComments;
-                  if (confirmCheckedSums && confirmCheckedProduction && mealOk) handleSubmit();
+                  const transportOk = !receipts.some((r) => parseCommentFlags(r.commentFlags).includes("TRANSPORT")) || confirmCheckedTransportComments;
+                  if (confirmCheckedSums && confirmCheckedProduction && mealOk && transportOk) handleSubmit();
                 }}
                 disabled={
                   !confirmCheckedSums ||
                   !confirmCheckedProduction ||
-                  (receipts.some((r) => parseCommentFlags(r.commentFlags).includes("MEAL")) && !confirmCheckedMealComments)
+                  (receipts.some((r) => parseCommentFlags(r.commentFlags).includes("MEAL")) && !confirmCheckedMealComments) ||
+                  (receipts.some((r) => parseCommentFlags(r.commentFlags).includes("TRANSPORT")) && !confirmCheckedTransportComments)
                 }
                 className="rounded-lg bg-green-700 px-4 py-2 text-sm font-medium text-white hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
               >

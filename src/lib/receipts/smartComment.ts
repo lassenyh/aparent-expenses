@@ -10,6 +10,7 @@ export type SmartCommentResult = {
 };
 
 const MEAL_SUGGESTION = "Forslag: Catering til filmarbeidere og statister";
+const TRANSPORT_SUGGESTION = "Forslag: Reise til/fra opptak, eller beskriv formål";
 
 const GROCERY_BRANDS = [
   "kiwi", "rema 1000", "rema", "meny", "joker", "spar", "extra", "coop",
@@ -35,6 +36,14 @@ const FOOD_DRINK_KEYWORDS = [
   "smoothie", "muffin", "bowl", "salad", "sandwich", "acai",
   "burrito", "taco", "salsa", "jarritos",
   "takeaway", "take away", "to go", "el camino",
+];
+
+const TRANSPORT_KEYWORDS = [
+  "reise", "transport", "bensin", "drivstoff", "parkering", "parkeringer",
+  "taxi", "buss", "tog", "fly", "bompenger", "bom", "easy park", "easypark",
+  "park", "fuel", "diesel", "bensinstasjon", "tank", "reisekostnad",
+  "reisekostnader", "kjøregodtgjørelse", "kjøring", "kjøre", "bil",
+  "pendling", "kollektiv", "flytog", "vy", "ruter", "snn", "sas", "norwegian",
 ];
 
 function normalize(s: string): string {
@@ -88,6 +97,12 @@ export function detectSmartComment(input: {
   if (isGrocery || isGasKiosk || hasFoodKeyword) {
     flags.push("MEAL");
     suggestionByFlag.MEAL = MEAL_SUGGESTION;
+  }
+
+  const hasTransportKeyword = containsWord(combined, TRANSPORT_KEYWORDS);
+  if (hasTransportKeyword) {
+    flags.push("TRANSPORT");
+    suggestionByFlag.TRANSPORT = TRANSPORT_SUGGESTION;
   }
 
   return { flags, suggestionByFlag };
