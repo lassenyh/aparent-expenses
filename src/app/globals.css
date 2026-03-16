@@ -50,7 +50,7 @@ body {
   position: absolute;
   inset: 0;
   z-index: 10;
-  border: 2px dashed rgb(248 113 113);
+  border: 2px dashed rgb(34 197 94);
   border-radius: 0.25rem;
   pointer-events: none;
   animation: meal-pulse-twice 2.2s ease-in-out forwards;

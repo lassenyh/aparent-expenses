@@ -102,9 +102,9 @@ export function ReviewEditor({
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [confirmCheckedSums, setConfirmCheckedSums] = useState(false);
   const [confirmCheckedProduction, setConfirmCheckedProduction] = useState(false);
-  const [confirmCheckedMealComments, setConfirmCheckedMealComments] = useState(false);
-  const [confirmCheckedTransportComments, setConfirmCheckedTransportComments] = useState(false);
   const [isDraggingOverReceipts, setIsDraggingOverReceipts] = useState(false);
+  const [showCommentErrors, setShowCommentErrors] = useState(false);
+  const [showAmountErrors, setShowAmountErrors] = useState(false);
   const [commentExpandedIds, setCommentExpandedIds] = useState<Set<string>>(
     () =>
       new Set(
@@ -338,27 +338,30 @@ export function ReviewEditor({
   );
 
   const validateAccount = useCallback(() => {
+    const trimmed = accountNumber.trim();
     const digits = accountNumber.replace(/\D/g, "");
-    if (accountNumber.trim() === "") {
-      setAccountError(null);
+
+    if (trimmed === "") {
+      setAccountError("Kontonummer er påkrevd");
       return false;
     }
+
     if (digits.length !== 11) {
       setAccountError("Kontonummer må være 11 sifre");
       return false;
     }
+
     setAccountError(null);
     return true;
   }, [accountNumber]);
 
   const canOpenConfirm = () => {
+    // Brukes kun til å avgjøre om vi kan åpne bekreftelsesmodalen –
+    // selve feilmeldingene settes i handleOpenConfirmModal.
     if (!validateAccount()) return false;
-    const digits = accountNumber.replace(/\D/g, "");
-    if (accountNumber.trim() && digits.length !== 11) return false;
     for (const r of receipts) {
       if (r.extractedTotalCents == null) return false;
     }
-    // All receipts with MEAL/TRANSPORT flags and an open comment field must have a comment
     for (const r of receipts) {
       const flags = parseCommentFlags(r.commentFlags);
       const requiresComment =
@@ -373,63 +376,113 @@ export function ReviewEditor({
 
   const handleOpenConfirmModal = () => {
     setSubmitError(null);
-    if (!canOpenConfirm()) {
-      if (!validateAccount()) return;
-      const digits = accountNumber.replace(/\D/g, "");
-      if (accountNumber.trim() && digits.length !== 11) {
-        setAccountError("Kontonummer må være 11 sifre");
-        return;
-      }
-      for (const r of receipts) {
-        if (r.extractedTotalCents == null) {
-          setSubmitError("Alle kvitteringer må ha beløp (NOK).");
-          return;
-        }
-      }
-      for (const r of receipts) {
-        const flags = parseCommentFlags(r.commentFlags);
-        const requiresComment =
-          (flags.includes("MEAL") || flags.includes("TRANSPORT")) &&
-          !commentFieldCollapsedIds.has(r.id);
-        if (requiresComment && !(r.comment && r.comment.trim().length > 0)) {
-          setSubmitError(
-            "Kvitteringer med mat/drikke eller reisekostnader må ha kommentar, eller fjern kommentarfeltet/taggen."
-          );
-          return;
-        }
-      }
-      return;
-    }
-    setConfirmCheckedSums(false);
-    setConfirmCheckedProduction(false);
-    setConfirmCheckedMealComments(false);
-    setShowConfirmModal(true);
-  };
+    setShowCommentErrors(false);
+    setShowAmountErrors(false);
 
-  const handleSubmit = async () => {
-    if (!validateAccount()) return;
-    const digits = accountNumber.replace(/\D/g, "");
-    if (accountNumber.trim() && digits.length !== 11) {
-      setAccountError("Kontonummer må være 11 sifre");
-      return;
+    let ok = true;
+
+    // Navn
+    if (!name.trim()) {
+      ok = false;
     }
+
+    // Prosjektnavn
+    if (!project.trim()) {
+      ok = false;
+    }
+
+    // Kontonummer
+    if (!validateAccount()) {
+      ok = false;
+    }
+
+    // Beløp
+    let missingAmount = false;
     for (const r of receipts) {
-      if (r.extractedTotalCents == null) {
-        setSubmitError("Alle kvitteringer må ha beløp (NOK).");
-        return;
+      if (r.extractedTotalCents == null || r.extractedTotalCents <= 0) {
+        missingAmount = true;
+        break;
       }
     }
+    if (missingAmount) {
+      setShowAmountErrors(true);
+      setSubmitError("Alle kvitteringer må ha beløp i NOK større enn 0.");
+      ok = false;
+    }
+
+    // Kommentar (mat/drikke & reisekostnader)
+    let missingRequiredComment = false;
     for (const r of receipts) {
       const flags = parseCommentFlags(r.commentFlags);
       const requiresComment =
         (flags.includes("MEAL") || flags.includes("TRANSPORT")) &&
         !commentFieldCollapsedIds.has(r.id);
       if (requiresComment && !(r.comment && r.comment.trim().length > 0)) {
-        setSubmitError(
-          "Kvitteringer med mat/drikke eller reisekostnader må ha kommentar, eller fjern kommentarfeltet/taggen."
-        );
-        return;
+        missingRequiredComment = true;
+        break;
       }
+    }
+    if (missingRequiredComment) {
+      setShowCommentErrors(true);
+      setSubmitError(
+        "Kvitteringer med mat/drikke eller reisekostnader må ha kommentar, eller fjern kommentarfeltet/taggen."
+      );
+      ok = false;
+    }
+
+    if (!ok) return;
+
+    setConfirmCheckedSums(false);
+    setConfirmCheckedProduction(false);
+    setShowConfirmModal(true);
+  };
+
+  const handleSubmit = async () => {
+    if (!name.trim()) {
+      setSubmitError("Navn er påkrevd.");
+      return;
+    }
+
+    if (!project.trim()) {
+      setSubmitError("Prosjektnavn er påkrevd.");
+      return;
+    }
+
+    if (!validateAccount()) return;
+    const digits = accountNumber.replace(/\D/g, "");
+    if (accountNumber.trim() && digits.length !== 11) {
+      setAccountError("Kontonummer må være 11 sifre");
+      return;
+    }
+    let missingAmount = false;
+    for (const r of receipts) {
+      if (r.extractedTotalCents == null || r.extractedTotalCents <= 0) {
+        missingAmount = true;
+        break;
+      }
+    }
+    if (missingAmount) {
+      setShowAmountErrors(true);
+      setSubmitError("Alle kvitteringer må ha beløp i NOK større enn 0.");
+      return;
+    }
+    let missingRequiredComment = false;
+    for (const r of receipts) {
+      const flags = parseCommentFlags(r.commentFlags);
+      const requiresComment =
+        (flags.includes("MEAL") || flags.includes("TRANSPORT")) &&
+        !commentFieldCollapsedIds.has(r.id);
+      if (requiresComment && !(r.comment && r.comment.trim().length > 0)) {
+        missingRequiredComment = true;
+        break;
+      }
+    }
+    if (missingRequiredComment) {
+      setShowCommentErrors(true);
+      setSubmitError(
+        "Kvitteringer med mat/drikke eller reisekostnader må ha kommentar, eller fjern kommentarfeltet/taggen."
+      );
+      return;
     }
     setSubmitError(null);
     setShowConfirmModal(false);
@@ -585,7 +638,9 @@ export function ReviewEditor({
         </h2>
         <div className="grid gap-4">
           <div>
-            <label htmlFor="personinfo-name" className="block text-sm text-neutral-400 mb-1">Navn</label>
+            <label htmlFor="personinfo-name" className="block text-sm text-neutral-400 mb-1">
+              Navn <span className="text-neutral-500">*</span>
+            </label>
             <input
               id="personinfo-name"
               name="name"
@@ -594,7 +649,11 @@ export function ReviewEditor({
               value={name}
               onChange={(e) => setName(e.target.value)}
               disabled={isSubmitted}
-              className="w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-white placeholder-neutral-500 focus:border-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-500 disabled:opacity-60"
+              className={`w-full rounded-lg border bg-neutral-800 px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 disabled:opacity-60 ${
+                !name.trim()
+                  ? "border-red-500 focus:border-red-500 focus:ring-red-500"
+                  : "border-neutral-700 focus:border-neutral-500 focus:ring-neutral-500"
+              }`}
               placeholder="Fullt navn"
             />
           </div>
@@ -638,7 +697,7 @@ export function ReviewEditor({
             </div>
             <div className="min-w-0">
               <label className="block text-sm text-neutral-400 mb-1">
-                Prosjektnavn
+                Prosjektnavn <span className="text-neutral-500">*</span>
               </label>
               <input
                 id="personinfo-project"
@@ -648,7 +707,11 @@ export function ReviewEditor({
                 value={project}
                 onChange={(e) => setProject(e.target.value)}
                 disabled={isSubmitted}
-                className="w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-white placeholder-neutral-500 focus:border-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-500 disabled:opacity-60"
+                className={`w-full rounded-lg border bg-neutral-800 px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 disabled:opacity-60 ${
+                  !project.trim()
+                    ? "border-red-500 focus:border-red-500 focus:ring-red-500"
+                    : "border-neutral-700 focus:border-neutral-500 focus:ring-neutral-500"
+                }`}
                 placeholder="Prosjektnavn"
               />
             </div>
@@ -844,11 +907,14 @@ export function ReviewEditor({
                       return;
                     }
                     const num = parseFloat(v);
-                    if (!Number.isNaN(num) && num >= 0 && num <= 10000) {
-                      updateReceipt(r.id, {
-                        extractedTotalCents: Math.round(num * 100),
-                      });
+                    if (Number.isNaN(num) || num <= 0 || num > 10000) {
+                      // Ugyldig eller 0/negativt – behandles som ikke utfylt
+                      updateReceipt(r.id, { extractedTotalCents: null });
+                      return;
                     }
+                    updateReceipt(r.id, {
+                      extractedTotalCents: Math.round(num * 100),
+                    });
                   },
                   onBlur: (e: React.FocusEvent<HTMLInputElement>) => {
                     const v = e.target.value.trim();
@@ -1011,7 +1077,12 @@ export function ReviewEditor({
                         <div className="hidden md:flex h-8 items-center justify-end gap-1">
                           <input
                             {...amountInputProps}
-                            className="h-8 w-28 rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-right text-white focus:border-neutral-500 focus:outline-none"
+                            className={`h-8 w-28 rounded border bg-neutral-800 px-2 py-1 text-right text-white focus:outline-none ${
+                              showAmountErrors &&
+                              (r.extractedTotalCents == null || r.extractedTotalCents <= 0)
+                                ? "border-red-500 focus:border-red-500"
+                                : "border-neutral-700 focus:border-neutral-500"
+                            }`}
                           />
                           <span className="text-xs text-neutral-500 shrink-0">NOK</span>
                         </div>
@@ -1148,7 +1219,12 @@ export function ReviewEditor({
                         <div className="flex h-8 items-center gap-1">
                           <input
                             {...amountInputProps}
-                            className="h-8 w-24 rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-right text-white focus:border-neutral-500 focus:outline-none"
+                            className={`h-8 w-24 rounded border bg-neutral-800 px-2 py-1 text-right text-white focus:outline-none ${
+                              showAmountErrors &&
+                              (r.extractedTotalCents == null || r.extractedTotalCents <= 0)
+                                ? "border-red-500 focus:border-red-500"
+                                : "border-neutral-700 focus:border-neutral-500"
+                            }`}
                           />
                           <span className="text-xs text-neutral-500 shrink-0">NOK</span>
                         </div>
@@ -1231,7 +1307,8 @@ export function ReviewEditor({
                             className={`min-h-7 w-full min-w-0 resize-none overflow-hidden rounded-md border bg-[rgba(255,255,255,0.03)] px-2.5 py-1 text-xs text-white placeholder:text-[rgba(255,255,255,0.45)] focus:outline-none focus:ring-1 disabled:opacity-60 ${
                               (activeFlags.includes("MEAL") || activeFlags.includes("TRANSPORT")) &&
                               !commentFieldCollapsedIds.has(r.id) &&
-                              !(r.comment && r.comment.trim().length > 0)
+                              !(r.comment && r.comment.trim().length > 0) &&
+                              showCommentErrors
                                 ? "border-red-500 focus:border-red-500 focus:ring-red-500"
                                 : "border-[rgba(255,255,255,0.12)] focus:border-[rgba(255,255,255,0.25)] focus:ring-[rgba(255,255,255,0.15)]"
                             }`}
@@ -1593,34 +1670,6 @@ export function ReviewEditor({
                   Jeg har fylt inn om jeg har mottatt produksjonskasse (forskudd) eller ikke
                 </label>
               </li>
-              {receipts.some((r) => parseCommentFlags(r.commentFlags).includes("MEAL")) && (
-                <li className="flex items-start gap-3">
-                  <input
-                    type="checkbox"
-                    id="confirm-meal-comments"
-                    checked={confirmCheckedMealComments}
-                    onChange={(e) => setConfirmCheckedMealComments(e.target.checked)}
-                    className="mt-1 h-5 w-5 min-h-5 min-w-5 shrink-0 rounded border-neutral-600 bg-neutral-800 text-green-600 focus:ring-green-500"
-                  />
-                  <label htmlFor="confirm-meal-comments" className="text-sm text-neutral-300">
-                    Jeg har kommentert kvitteringer som inneholder mat/drikke
-                  </label>
-                </li>
-              )}
-              {receipts.some((r) => parseCommentFlags(r.commentFlags).includes("TRANSPORT")) && (
-                <li className="flex items-start gap-3">
-                  <input
-                    type="checkbox"
-                    id="confirm-transport-comments"
-                    checked={confirmCheckedTransportComments}
-                    onChange={(e) => setConfirmCheckedTransportComments(e.target.checked)}
-                    className="mt-1 h-5 w-5 min-h-5 min-w-5 shrink-0 rounded border-neutral-600 bg-neutral-800 text-green-600 focus:ring-green-500"
-                  />
-                  <label htmlFor="confirm-transport-comments" className="text-sm text-neutral-300">
-                    Jeg har kommentert kvitteringer som inneholder reisekostnader
-                  </label>
-                </li>
-              )}
             </ul>
             <dl className="space-y-2 text-sm mb-6 p-4 rounded-lg bg-neutral-800/50">
               <div className="flex justify-between">
@@ -1663,16 +1712,9 @@ export function ReviewEditor({
               <button
                 type="button"
                 onClick={() => {
-                  const mealOk = !receipts.some((r) => parseCommentFlags(r.commentFlags).includes("MEAL")) || confirmCheckedMealComments;
-                  const transportOk = !receipts.some((r) => parseCommentFlags(r.commentFlags).includes("TRANSPORT")) || confirmCheckedTransportComments;
-                  if (confirmCheckedSums && confirmCheckedProduction && mealOk && transportOk) handleSubmit();
+                  if (confirmCheckedSums && confirmCheckedProduction) handleSubmit();
                 }}
-                disabled={
-                  !confirmCheckedSums ||
-                  !confirmCheckedProduction ||
-                  (receipts.some((r) => parseCommentFlags(r.commentFlags).includes("MEAL")) && !confirmCheckedMealComments) ||
-                  (receipts.some((r) => parseCommentFlags(r.commentFlags).includes("TRANSPORT")) && !confirmCheckedTransportComments)
-                }
+                disabled={!confirmCheckedSums || !confirmCheckedProduction}
                 className="rounded-lg bg-green-700 px-4 py-2 text-sm font-medium text-white hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Bekreft og send inn
