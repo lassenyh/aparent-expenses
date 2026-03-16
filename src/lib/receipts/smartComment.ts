@@ -48,6 +48,8 @@ const TRANSPORT_KEYWORDS = [
   "atb", "skyss", "kolumbus", "fram", "nettbuss", "nor-way", "flixbus", "flix",
   "nsb", "go-ahead", "sj", "brakar", "troms fylkestrafikk",
   "airport", "flyplass", "flybuss", "flybussen", "oslo lufthavn", "gardermoen",
+  "bolt", "uber", "voi", "tier", "lime", "ryde", "sparkesykkel", "el-scooter",
+  "share now", "citybee", "hyre", "bilkollektiv",
 ];
 
 function normalize(s: string): string {
