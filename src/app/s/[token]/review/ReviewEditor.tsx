@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { upload } from "@vercel/blob/client";
 import { parseCommentFlags, type SmartFlag } from "@/lib/receipts/smartComment";
@@ -105,22 +105,29 @@ export function ReviewEditor({
   const [isDraggingOverReceipts, setIsDraggingOverReceipts] = useState(false);
   const [showCommentErrors, setShowCommentErrors] = useState(false);
   const [showAmountErrors, setShowAmountErrors] = useState(false);
+  const [showFieldErrors, setShowFieldErrors] = useState(false);
   const [commentExpandedIds, setCommentExpandedIds] = useState<Set<string>>(
     () =>
       new Set(
         initialData.receipts
-          .filter((r) => parseCommentFlags(r.commentFlags).length > 0)
+          .filter((r) => parseCommentFlags(r.commentFlags ?? null).length > 0)
           .map((r) => r.id)
       )
   );
   /** Receipt IDs where user closed the comment field with trash (so it stays collapsed even if flags exist) */
-  const [commentFieldCollapsedIds, setCommentFieldCollapsedIds] = useState<Set<string>>(() => new Set());
+  const [commentFieldCollapsedIds, setCommentFieldCollapsedIds] = useState<Set<string>>(
+    () => new Set()
+  );
   /** Receipt IDs where user has clicked to dismiss the stripet grønn "kommentar ønskes" ramme (eller etter at animasjonen er ferdig) */
-  const [mealHighlightDismissedIds, setMealHighlightDismissedIds] = useState<Set<string>>(() => new Set());
+  const [mealHighlightDismissedIds, setMealHighlightDismissedIds] = useState<Set<string>>(
+    () => new Set()
+  );
   /** Satt til true når bruker lukker mat/drikke-popup – da starter pulseringsanimasjonen på kommentarfelt */
   const [mealModalClosedOnce, setMealModalClosedOnce] = useState(false);
   const [showMealInfoModal, setShowMealInfoModal] = useState(false);
-  const [transportHighlightDismissedIds, setTransportHighlightDismissedIds] = useState<Set<string>>(() => new Set());
+  const [transportHighlightDismissedIds, setTransportHighlightDismissedIds] = useState<Set<string>>(
+    () => new Set()
+  );
   const [transportModalClosedOnce, setTransportModalClosedOnce] = useState(false);
   const [showTransportInfoModal, setShowTransportInfoModal] = useState(false);
   const [showCurrencyInfoModal, setShowCurrencyInfoModal] = useState(false);
@@ -129,18 +136,29 @@ export function ReviewEditor({
   const commentTextareaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   const workDateInputRef = useRef<HTMLInputElement>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const projectInputRef = useRef<HTMLInputElement>(null);
+  const accountInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    const initialFlagsById = new Map<
+      string,
+      ReturnType<typeof parseCommentFlags>
+    >();
+    initialData.receipts.forEach((r) => {
+      initialFlagsById.set(r.id, parseCommentFlags(r.commentFlags ?? null));
+    });
+
     if (
       initialData.receipts.some((r) =>
-        parseCommentFlags(r.commentFlags).includes("MEAL")
+        (initialFlagsById.get(r.id) ?? []).includes("MEAL")
       )
     ) {
       setShowMealInfoModal(true);
     }
     if (
       initialData.receipts.some((r) =>
-        parseCommentFlags(r.commentFlags).includes("TRANSPORT")
+        (initialFlagsById.get(r.id) ?? []).includes("TRANSPORT")
       )
     ) {
       setShowTransportInfoModal(true);
@@ -173,16 +191,24 @@ export function ReviewEditor({
     );
   };
 
-  const totalCents = receipts.reduce(
-    (s, r) => s + (r.extractedTotalCents ?? 0),
-    0
+  const totalCents = useMemo(
+    () =>
+      receipts.reduce(
+        (s, r) => s + (r.extractedTotalCents ?? 0),
+        0
+      ),
+    [receipts]
   );
 
-  const productionCashCents = Math.round(
-    (Number(productionCash) || 0) * 100
+  const productionCashCents = useMemo(
+    () => Math.round((Number(productionCash) || 0) * 100),
+    [productionCash]
   );
 
-  const diffCents = totalCents - productionCashCents;
+  const diffCents = useMemo(
+    () => totalCents - productionCashCents,
+    [totalCents, productionCashCents]
+  );
 
   const handleDeleteReceipt = useCallback(
     async (receiptId: string) => {
@@ -355,6 +381,51 @@ export function ReviewEditor({
     return true;
   }, [accountNumber]);
 
+  const scrollToFirstTopError = useCallback(
+    (opts: { name?: boolean; project?: boolean; account?: boolean }) => {
+      if (opts.name && nameInputRef.current) {
+        nameInputRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+        nameInputRef.current.focus();
+        return;
+      }
+      if (opts.project && projectInputRef.current) {
+        projectInputRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+        projectInputRef.current.focus();
+        return;
+      }
+      if (opts.account && accountInputRef.current) {
+        accountInputRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+        accountInputRef.current.focus();
+      }
+    },
+    []
+  );
+
+  // Memoized lookup for comment flags per receipt to avoid repeated JSON parsing in render
+  const flagsById = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof parseCommentFlags>>();
+    receipts.forEach((r) => {
+      map.set(r.id, parseCommentFlags(r.commentFlags ?? null));
+    });
+    return map;
+  }, [receipts]);
+
+  const hasAnyMeal = useMemo(
+    () =>
+      receipts.some((r) =>
+        (flagsById.get(r.id) ?? []).includes("MEAL")
+      ),
+    [receipts, flagsById]
+  );
+
+  const hasAnyTransport = useMemo(
+    () =>
+      receipts.some((r) =>
+        (flagsById.get(r.id) ?? []).includes("TRANSPORT")
+      ),
+    [receipts, flagsById]
+  );
+
   const canOpenConfirm = () => {
     // Brukes kun til å avgjøre om vi kan åpne bekreftelsesmodalen –
     // selve feilmeldingene settes i handleOpenConfirmModal.
@@ -378,33 +449,45 @@ export function ReviewEditor({
     setSubmitError(null);
     setShowCommentErrors(false);
     setShowAmountErrors(false);
+    setShowFieldErrors(false);
 
     let ok = true;
 
-    // Navn
-    if (!name.trim()) {
+    // Navn / Prosjektnavn
+    const missingName = !name.trim();
+    const missingProject = !project.trim();
+    if (missingName || missingProject) {
+      setShowFieldErrors(true);
+      setSubmitError(
+        missingName && missingProject
+          ? "Navn og prosjektnavn er påkrevd."
+          : missingName
+            ? "Navn er påkrevd."
+            : "Prosjektnavn er påkrevd."
+      );
       ok = false;
-    }
-
-    // Prosjektnavn
-    if (!project.trim()) {
-      ok = false;
+      scrollToFirstTopError({
+        name: missingName,
+        project: !missingName && missingProject,
+        account: false,
+      });
     }
 
     // Kontonummer
-    if (!validateAccount()) {
+    const accountOk = validateAccount();
+    if (!accountOk) {
       ok = false;
+      if (!missingName && !missingProject) {
+        scrollToFirstTopError({ name: false, project: false, account: true });
+      }
     }
 
     // Beløp
-    let missingAmount = false;
-    for (const r of receipts) {
-      if (r.extractedTotalCents == null || r.extractedTotalCents <= 0) {
-        missingAmount = true;
-        break;
-      }
-    }
-    if (missingAmount) {
+    if (
+      receipts.some(
+        (r) => r.extractedTotalCents == null || r.extractedTotalCents <= 0
+      )
+    ) {
       setShowAmountErrors(true);
       setSubmitError("Alle kvitteringer må ha beløp i NOK større enn 0.");
       ok = false;
@@ -438,30 +521,39 @@ export function ReviewEditor({
   };
 
   const handleSubmit = async () => {
-    if (!name.trim()) {
-      setSubmitError("Navn er påkrevd.");
+    const missingName = !name.trim();
+    const missingProject = !project.trim();
+    if (missingName || missingProject) {
+      setShowFieldErrors(true);
+      setSubmitError(
+        missingName && missingProject
+          ? "Navn og prosjektnavn er påkrevd."
+          : missingName
+            ? "Navn er påkrevd."
+            : "Prosjektnavn er påkrevd."
+      );
+      scrollToFirstTopError({
+        name: missingName,
+        project: !missingName && missingProject,
+        account: false,
+      });
       return;
     }
 
-    if (!project.trim()) {
-      setSubmitError("Prosjektnavn er påkrevd.");
+    if (!validateAccount()) {
+      scrollToFirstTopError({ name: false, project: false, account: true });
       return;
     }
-
-    if (!validateAccount()) return;
     const digits = accountNumber.replace(/\D/g, "");
     if (accountNumber.trim() && digits.length !== 11) {
       setAccountError("Kontonummer må være 11 sifre");
       return;
     }
-    let missingAmount = false;
-    for (const r of receipts) {
-      if (r.extractedTotalCents == null || r.extractedTotalCents <= 0) {
-        missingAmount = true;
-        break;
-      }
-    }
-    if (missingAmount) {
+    if (
+      receipts.some(
+        (r) => r.extractedTotalCents == null || r.extractedTotalCents <= 0
+      )
+    ) {
       setShowAmountErrors(true);
       setSubmitError("Alle kvitteringer må ha beløp i NOK større enn 0.");
       return;
@@ -642,6 +734,7 @@ export function ReviewEditor({
               Navn <span className="text-neutral-500">*</span>
             </label>
             <input
+              ref={nameInputRef}
               id="personinfo-name"
               name="name"
               type="text"
@@ -650,7 +743,7 @@ export function ReviewEditor({
               onChange={(e) => setName(e.target.value)}
               disabled={isSubmitted}
               className={`w-full rounded-lg border bg-neutral-800 px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 disabled:opacity-60 ${
-                !name.trim()
+                showFieldErrors && !name.trim()
                   ? "border-red-500 focus:border-red-500 focus:ring-red-500"
                   : "border-neutral-700 focus:border-neutral-500 focus:ring-neutral-500"
               }`}
@@ -700,6 +793,7 @@ export function ReviewEditor({
                 Prosjektnavn <span className="text-neutral-500">*</span>
               </label>
               <input
+                ref={projectInputRef}
                 id="personinfo-project"
                 name="project"
                 type="text"
@@ -708,7 +802,7 @@ export function ReviewEditor({
                 onChange={(e) => setProject(e.target.value)}
                 disabled={isSubmitted}
                 className={`w-full rounded-lg border bg-neutral-800 px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 disabled:opacity-60 ${
-                  !project.trim()
+                  showFieldErrors && !project.trim()
                     ? "border-red-500 focus:border-red-500 focus:ring-red-500"
                     : "border-neutral-700 focus:border-neutral-500 focus:ring-neutral-500"
                 }`}
@@ -736,6 +830,7 @@ export function ReviewEditor({
               Kontonummer (11 sifre) <span className="text-neutral-500">*</span>
             </label>
             <input
+              ref={accountInputRef}
               id="personinfo-accountNumber"
               name="accountNumber"
               type="text"
@@ -756,9 +851,6 @@ export function ReviewEditor({
               placeholder="11 sifre"
               maxLength={11}
             />
-            {accountError && (
-              <p className="mt-1 text-sm text-red-400">{accountError}</p>
-            )}
           </div>
           <div>
             <label htmlFor="personinfo-productionCash" className="block text-sm text-neutral-400 mb-1">
@@ -861,16 +953,11 @@ export function ReviewEditor({
                     </div>,
                   ];
                 }
-                const activeFlags = parseCommentFlags(r.commentFlags);
                 const showComment =
-                  (activeFlags.length > 0 && !commentFieldCollapsedIds.has(r.id)) ||
+                  ((flagsById.get(r.id) ?? []).length > 0 &&
+                    !commentFieldCollapsedIds.has(r.id)) ||
                   commentExpandedIds.has(r.id);
-                const hasAnyMeal = receipts.some((rec) =>
-                  parseCommentFlags(rec.commentFlags).includes("MEAL")
-                );
-                const hasAnyTransport = receipts.some((rec) =>
-                  parseCommentFlags(rec.commentFlags).includes("TRANSPORT")
-                );
+                const activeFlags = flagsById.get(r.id) ?? [];
                 const allInfoModalsClosed =
                   (mealModalClosedOnce || !hasAnyMeal) &&
                   (transportModalClosedOnce || !hasAnyTransport);
