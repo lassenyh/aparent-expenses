@@ -358,6 +358,16 @@ export function ReviewEditor({
     for (const r of receipts) {
       if (r.extractedTotalCents == null) return false;
     }
+    // All receipts with MEAL/TRANSPORT flags and an open comment field must have a comment
+    for (const r of receipts) {
+      const flags = parseCommentFlags(r.commentFlags);
+      const requiresComment =
+        (flags.includes("MEAL") || flags.includes("TRANSPORT")) &&
+        !commentFieldCollapsedIds.has(r.id);
+      if (requiresComment && !(r.comment && r.comment.trim().length > 0)) {
+        return false;
+      }
+    }
     return true;
   };
 
@@ -373,6 +383,18 @@ export function ReviewEditor({
       for (const r of receipts) {
         if (r.extractedTotalCents == null) {
           setSubmitError("Alle kvitteringer må ha beløp (NOK).");
+          return;
+        }
+      }
+      for (const r of receipts) {
+        const flags = parseCommentFlags(r.commentFlags);
+        const requiresComment =
+          (flags.includes("MEAL") || flags.includes("TRANSPORT")) &&
+          !commentFieldCollapsedIds.has(r.id);
+        if (requiresComment && !(r.comment && r.comment.trim().length > 0)) {
+          setSubmitError(
+            "Kvitteringer med mat/drikke eller reisekostnader må ha kommentar, eller fjern kommentarfeltet/taggen."
+          );
           return;
         }
       }
@@ -394,6 +416,18 @@ export function ReviewEditor({
     for (const r of receipts) {
       if (r.extractedTotalCents == null) {
         setSubmitError("Alle kvitteringer må ha beløp (NOK).");
+        return;
+      }
+    }
+    for (const r of receipts) {
+      const flags = parseCommentFlags(r.commentFlags);
+      const requiresComment =
+        (flags.includes("MEAL") || flags.includes("TRANSPORT")) &&
+        !commentFieldCollapsedIds.has(r.id);
+      if (requiresComment && !(r.comment && r.comment.trim().length > 0)) {
+        setSubmitError(
+          "Kvitteringer med mat/drikke eller reisekostnader må ha kommentar, eller fjern kommentarfeltet/taggen."
+        );
         return;
       }
     }
@@ -1194,7 +1228,13 @@ export function ReviewEditor({
                                   : "Skriv en kommentar (valgfritt)…"
                             }
                             rows={1}
-                            className="min-h-7 w-full min-w-0 resize-none overflow-hidden rounded-md border border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.03)] px-2.5 py-1 text-xs text-white placeholder:text-[rgba(255,255,255,0.45)] focus:border-[rgba(255,255,255,0.25)] focus:outline-none focus:ring-1 focus:ring-[rgba(255,255,255,0.15)] disabled:opacity-60"
+                            className={`min-h-7 w-full min-w-0 resize-none overflow-hidden rounded-md border bg-[rgba(255,255,255,0.03)] px-2.5 py-1 text-xs text-white placeholder:text-[rgba(255,255,255,0.45)] focus:outline-none focus:ring-1 disabled:opacity-60 ${
+                              (activeFlags.includes("MEAL") || activeFlags.includes("TRANSPORT")) &&
+                              !commentFieldCollapsedIds.has(r.id) &&
+                              !(r.comment && r.comment.trim().length > 0)
+                                ? "border-red-500 focus:border-red-500 focus:ring-red-500"
+                                : "border-[rgba(255,255,255,0.12)] focus:border-[rgba(255,255,255,0.25)] focus:ring-[rgba(255,255,255,0.15)]"
+                            }`}
                           />
                           {showMealHighlight && (
                             <div
