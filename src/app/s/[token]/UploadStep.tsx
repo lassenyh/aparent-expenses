@@ -241,7 +241,7 @@ export function UploadStep({
                   {fileName}
                 </p>
                 <span className="text-xs text-neutral-500 shrink-0">
-                  Laster opp…
+                  Laster opp og analyserer…
                 </span>
               </div>
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-neutral-700">
