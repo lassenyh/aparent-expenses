@@ -58,12 +58,7 @@ export async function POST(
       );
     }
 
-    // Kun analyser kvitteringer som mangler – resten er allerede analysert ved opplasting
-    const toAnalyze = submission.receipts.filter(
-      (r) => r.extractedSummary == null
-    );
-
-    for (const receipt of toAnalyze) {
+    for (const receipt of submission.receipts) {
       let bytes: Buffer;
       try {
         const result = await get(receipt.blobUrl, { access: "private" });
