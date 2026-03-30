@@ -36,6 +36,11 @@ const FOOD_DRINK_KEYWORDS = [
   "smoothie", "muffin", "bowl", "salad", "sandwich", "acai",
   "burrito", "taco", "salsa", "jarritos",
   "takeaway", "take away", "to go", "el camino",
+  // Matlevering / apper (ofte i kvitteringstekst eller AI-summary)
+  "wolt", "foodora", "uber eats", "just eat",
+  // Vanlig på restaurant-/takeaway-kvitteringer (PDF-tekst kommer ikke alltid med til detectSmartComment)
+  "guacamole", "nachos", "quesadilla", "enchilada", "fajitas", "jalapeno",
+  "sopp bowl", "portobello",
 ];
 
 const TRANSPORT_KEYWORDS = [
