@@ -89,7 +89,6 @@ export function ReviewEditor({
   const [receipts, setReceipts] = useState<ReceiptRow[]>(initialData.receipts);
   const [accountError, setAccountError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [exportingPdf, setExportingPdf] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [combinedPdfUrl, setCombinedPdfUrl] = useState<string | null>(
@@ -609,58 +608,6 @@ export function ReviewEditor({
     } catch (e) {
       setSubmitError((e as Error).message);
       setSubmitting(false);
-    }
-  };
-
-  const handleExportPdf = async () => {
-    for (const r of receipts) {
-      if (r.extractedTotalCents == null) {
-        setSubmitError("Alle kvitteringer må ha beløp (NOK) for å eksportere PDF.");
-        return;
-      }
-    }
-    setSubmitError(null);
-    setExportingPdf(true);
-    try {
-      const res = await fetch(
-        `/api/submissions/${encodeURIComponent(token)}/export-pdf`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: name || null,
-            projectNumber: projectNumber.trim() || null,
-            project: project.trim() || null,
-            workDate: workDate || null,
-            accountNumber: accountNumber.trim() || null,
-            productionCash: productionCash === "" ? null : Number(productionCash),
-            receipts: receipts.map((r) => ({
-              id: r.id,
-              extractedSummary: r.extractedSummary || null,
-              extractedTotalCents: r.extractedTotalCents,
-              comment: r.comment?.trim() || null,
-            })),
-          }),
-        }
-      );
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error ?? "Eksport feilet");
-      }
-      const blob = await res.blob();
-      const disposition = res.headers.get("Content-Disposition");
-      const filenameMatch = disposition?.match(/filename="?([^"]+)"?/);
-      const filename = filenameMatch ? filenameMatch[1] : "utlegg.pdf";
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (e) {
-      setSubmitError((e as Error).message);
-    } finally {
-      setExportingPdf(false);
     }
   };
 
@@ -1521,17 +1468,16 @@ export function ReviewEditor({
             type="button"
             onClick={handleOpenConfirmModal}
             disabled={submitting}
-            className="rounded-lg bg-green-700 px-4 py-2 text-sm font-medium text-white hover:bg-green-600 disabled:opacity-50"
+            aria-busy={submitting}
+            className="inline-flex min-h-[2.5rem] min-w-[8.5rem] items-center justify-center gap-2 rounded-lg bg-green-700 px-4 py-2 text-sm font-medium text-white hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {submitting ? "Sender inn…" : "Send inn"}
-          </button>
-          <button
-            type="button"
-            onClick={handleExportPdf}
-            disabled={exportingPdf || submitting}
-            className="rounded-lg border border-neutral-600 bg-neutral-800 px-4 py-2 text-sm font-medium text-neutral-200 hover:bg-neutral-700 disabled:opacity-50"
-          >
-            {exportingPdf ? "Eksporterer…" : "Eksporter PDF"}
+            {submitting && (
+              <span
+                className="inline-block h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-white border-t-transparent"
+                aria-hidden
+              />
+            )}
+            <span>{submitting ? "Sender inn…" : "Send inn"}</span>
           </button>
           <button
             type="button"
@@ -1570,7 +1516,7 @@ export function ReviewEditor({
             }}
             className="rounded-lg border border-neutral-600 bg-neutral-800 px-4 py-2 text-sm font-medium text-neutral-200 hover:bg-neutral-700"
           >
-            Forhåndsvis
+            Forhåndsvis skjema
           </button>
           {submitError && (
             <p className="text-sm text-red-400">{submitError}</p>
