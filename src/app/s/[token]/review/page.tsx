@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { ReviewEditor } from "./ReviewEditor";
@@ -149,11 +150,18 @@ export default async function ReviewPage(props: PageProps) {
       <div className="absolute inset-0 bg-neutral-950/85" aria-hidden />
       <div className="relative z-10 mx-auto max-w-4xl">
         <div className="mb-6 flex flex-col items-center gap-8 md:flex-row md:items-start md:justify-between md:gap-4">
-          <img
-            src="/logo.png"
-            alt="Logo"
-            className="h-10 w-auto max-w-[140px] shrink-0 object-contain"
-          />
+          <Link
+            href={`/s/${token}/upload`}
+            className="shrink-0 outline-none ring-offset-neutral-950 rounded-md focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2"
+            aria-label="Til opplasting"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/logo.png"
+              alt="Logo"
+              className="h-10 w-auto max-w-[140px] object-contain"
+            />
+          </Link>
           <h1 className="text-xl font-semibold text-center whitespace-nowrap md:text-2xl md:text-left">
             Gjennomgang og innsending
           </h1>

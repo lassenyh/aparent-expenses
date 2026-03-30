@@ -9,9 +9,9 @@ import { REPAYMENT_ACCOUNT_NUMBER } from "@/lib/constants";
 const PREVIEW_STORAGE_KEY = "expense-preview";
 
 const MEAL_COMMENT_PLACEHOLDER =
-  "Forslag: Catering til filmarbeidere og statister";
+  "Forslag: Catering til filmarbeidere og statister *";
 const TRANSPORT_COMMENT_PLACEHOLDER =
-  "Forslag: Reise til/fra opptak, eller beskriv formål";
+  "Forslag: Reise til/fra opptak, eller beskriv formål *";
 
 type ReceiptRow = {
   id: string;
@@ -1336,6 +1336,11 @@ export function ReviewEditor({
                                 : activeFlags.includes("TRANSPORT")
                                   ? TRANSPORT_COMMENT_PLACEHOLDER
                                   : "Skriv en kommentar (valgfritt)…"
+                            }
+                            aria-required={
+                              (activeFlags.includes("MEAL") ||
+                                activeFlags.includes("TRANSPORT")) &&
+                              !commentFieldCollapsedIds.has(r.id)
                             }
                             rows={1}
                             className={`min-h-7 w-full min-w-0 resize-none overflow-hidden rounded-md border bg-[rgba(255,255,255,0.03)] px-2.5 py-1 text-xs text-white placeholder:text-[rgba(255,255,255,0.45)] focus:outline-none focus:ring-1 disabled:opacity-60 ${
