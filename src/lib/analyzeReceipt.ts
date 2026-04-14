@@ -14,11 +14,24 @@ Regler for summary:
 - IKKE bruk ordet "Kvittering" eller "Kvittering fra" i beskrivelsen. Start direkte med innholdet (f.eks. butikk/tjeneste og hva det gjelder).
 - Hold beskrivelsen KORT: maks 4–6 ord eller én veldig kort setning (f.eks. "EasyPark parkering Aimo" eller "Kaffe og mat Coop").
 - Hvis kvitteringen er fra restaurant, kafé, takeaway, gatekjøkken eller inneholder mat/drikke (f.eks. burrito, pizza, drikke): inkluder minst ett av ordene mat, restaurant, kafé, takeaway, catering eller drikke i summary (f.eks. "Mat El Camino" eller "Takeaway burrito").
+- Hvis kvitteringen gjelder retur/tilbakebetaling/refund (ord som retur, tilbake, refund, credit note, tilbakeført): total SKAL være negativ (f.eks. -170.00).
 - total: totalbeløpet på kvitteringen som tall (f.eks. 149.50), eller null hvis beløp ikke kan leses.
 - currency: valutaen på kvitteringen som ISO-kode (NOK, SEK, EUR, USD, DKK osv). Bruk "NOK" for norske kroner.
 Bare returner JSON, ingen markdown eller forklaring.`;
 
-const IMAGE_PROMPT = `Analyser denne kvitteringen og returner JSON med "summary" (kort, uten ordet Kvittering; hvis det er mat/drikke inkluder f.eks. mat, restaurant eller takeaway), "total" (beløp) og "currency" (ISO-valutakode) som beskrevet.`;
+const IMAGE_PROMPT = `Analyser denne kvitteringen og returner JSON med "summary" (kort, uten ordet Kvittering; hvis det er mat/drikke inkluder f.eks. mat, restaurant eller takeaway), "total" (beløp) og "currency" (ISO-valutakode) som beskrevet. Viktig: Hvis kvitteringen er retur/tilbakebetaling/refund, returner total som negativt tall.`;
+
+function hasRefundSignal(text: string): boolean {
+  const s = text.toLowerCase();
+  return (
+    s.includes("retur") ||
+    s.includes("tilbake") ||
+    s.includes("refund") ||
+    s.includes("credit note") ||
+    s.includes("tilbakeført") ||
+    s.includes("return")
+  );
+}
 
 function getOpenAIClient(): OpenAI | null {
   const apiKey = process.env.OPENAI_API_KEY;
@@ -62,7 +75,11 @@ function parseModelResponse(text: string): {
       }
       return null;
     };
-    const total = totalNum(parsed.total) ?? totalNum(parsed.totalNok);
+    let total = totalNum(parsed.total) ?? totalNum(parsed.totalNok);
+    if (total != null && total > 0 && hasRefundSignal(summary)) {
+      // Fallback: Modell kan noen ganger lese retur-sum som positiv.
+      total = -total;
+    }
     const currency =
       typeof parsed.currency === "string" && parsed.currency.trim().length > 0
         ? parsed.currency.trim().toUpperCase()

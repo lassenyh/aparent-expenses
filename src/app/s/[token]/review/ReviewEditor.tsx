@@ -482,13 +482,9 @@ export function ReviewEditor({
     }
 
     // Beløp
-    if (
-      receipts.some(
-        (r) => r.extractedTotalCents == null || r.extractedTotalCents <= 0
-      )
-    ) {
+    if (receipts.some((r) => r.extractedTotalCents == null)) {
       setShowAmountErrors(true);
-      setSubmitError("Alle kvitteringer må ha beløp i NOK større enn 0.");
+      setSubmitError("Alle kvitteringer må ha beløp i NOK.");
       ok = false;
     }
 
@@ -548,13 +544,9 @@ export function ReviewEditor({
       setAccountError("Kontonummer må være 11 sifre");
       return;
     }
-    if (
-      receipts.some(
-        (r) => r.extractedTotalCents == null || r.extractedTotalCents <= 0
-      )
-    ) {
+    if (receipts.some((r) => r.extractedTotalCents == null)) {
       setShowAmountErrors(true);
-      setSubmitError("Alle kvitteringer må ha beløp i NOK større enn 0.");
+      setSubmitError("Alle kvitteringer må ha beløp i NOK.");
       return;
     }
     let missingRequiredComment = false;
@@ -924,7 +916,7 @@ export function ReviewEditor({
                   !transportHighlightDismissedIds.has(r.id);
                 const amountInputProps = {
                   type: "number" as const,
-                  min: 0,
+                  min: -10000,
                   max: 10000,
                   step: "0.01",
                   value:
@@ -941,8 +933,8 @@ export function ReviewEditor({
                       return;
                     }
                     const num = parseFloat(v);
-                    if (Number.isNaN(num) || num <= 0 || num > 10000) {
-                      // Ugyldig eller 0/negativt – behandles som ikke utfylt
+                    if (Number.isNaN(num) || num < -10000 || num > 10000) {
+                      // Ugyldig eller utenfor tillatt intervall – behandles som ikke utfylt
                       updateReceipt(r.id, { extractedTotalCents: null });
                       return;
                     }
@@ -954,7 +946,7 @@ export function ReviewEditor({
                     const v = e.target.value.trim();
                     if (v === "") return;
                     const num = parseFloat(v);
-                    if (!Number.isNaN(num) && num >= 0 && num <= 10000) {
+                    if (!Number.isNaN(num) && num >= -10000 && num <= 10000) {
                       setAmountInputs((prev) => {
                         const next = { ...prev };
                         next[r.id] = num.toFixed(2);
@@ -1113,7 +1105,7 @@ export function ReviewEditor({
                             {...amountInputProps}
                             className={`h-8 w-28 rounded border bg-neutral-800 px-2 py-1 text-right text-white focus:outline-none ${
                               showAmountErrors &&
-                              (r.extractedTotalCents == null || r.extractedTotalCents <= 0)
+                              r.extractedTotalCents == null
                                 ? "border-red-500 focus:border-red-500"
                                 : "border-neutral-700 focus:border-neutral-500"
                             }`}
@@ -1255,7 +1247,7 @@ export function ReviewEditor({
                             {...amountInputProps}
                             className={`h-8 w-24 rounded border bg-neutral-800 px-2 py-1 text-right text-white focus:outline-none ${
                               showAmountErrors &&
-                              (r.extractedTotalCents == null || r.extractedTotalCents <= 0)
+                              r.extractedTotalCents == null
                                 ? "border-red-500 focus:border-red-500"
                                 : "border-neutral-700 focus:border-neutral-500"
                             }`}
