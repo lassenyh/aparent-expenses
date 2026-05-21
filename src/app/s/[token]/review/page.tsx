@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
+import { getAdminSubmitterDefaults } from "@/lib/adminDefaults";
+import { isAdminSubmitterFlow } from "@/lib/adminSubmitterCookie";
 import { ReviewEditor } from "./ReviewEditor";
 
 type Params = { token: string };
@@ -50,6 +52,8 @@ export default async function ReviewPage(props: PageProps) {
   }
 
   if (submission.status === "SUBMITTED") {
+    const adminFlow = await isAdminSubmitterFlow();
+    const newSubmissionHref = adminFlow ? "/admin/new" : "/new";
     return (
       <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-neutral-950 text-white p-10">
         {/* Videobakgrunn for siste side – fil: public/background-success.mp4 */}
@@ -83,7 +87,7 @@ export default async function ReviewPage(props: PageProps) {
               Last ned PDF
             </a>
             <a
-              href="/new"
+              href={newSubmissionHref}
               className="inline-block rounded-lg border border-neutral-600 bg-neutral-800 px-4 py-2 text-sm font-medium text-neutral-200 hover:bg-neutral-700"
             >
               Nytt oppgjør
@@ -118,13 +122,16 @@ export default async function ReviewPage(props: PageProps) {
   const randomBg =
     backgroundImages[Math.floor(Math.random() * backgroundImages.length)] ?? backgroundImages[0];
 
+  const adminFlow = await isAdminSubmitterFlow();
+  const adminDefaults = adminFlow ? getAdminSubmitterDefaults() : null;
+
   const initialData = {
     status: submission.status,
-    name: submission.name,
+    name: submission.name ?? adminDefaults?.name ?? null,
     projectNumber: submission.projectNumber,
     project: submission.project,
     workDate: submission.workDate?.toISOString() ?? null,
-    accountNumber: submission.accountNumber,
+    accountNumber: submission.accountNumber ?? adminDefaults?.accountNumber ?? null,
     productionCash: submission.productionCash,
     combinedPdfUrl: submission.combinedPdfUrl,
     receipts: submission.receipts.map((r) => ({
@@ -162,9 +169,14 @@ export default async function ReviewPage(props: PageProps) {
               className="h-10 w-auto max-w-[140px] object-contain"
             />
           </Link>
-          <h1 className="text-xl font-semibold text-center whitespace-nowrap md:text-2xl md:text-left">
-            Gjennomgang og innsending
-          </h1>
+          <div className="flex flex-col items-center gap-1 md:items-start">
+            <h1 className="text-xl font-semibold text-center whitespace-nowrap md:text-2xl md:text-left">
+              Gjennomgang og innsending
+            </h1>
+            {adminFlow && (
+              <p className="text-xs text-neutral-500">Admin-modus (navn og konto forhåndsutfylt)</p>
+            )}
+          </div>
         </div>
         <ReviewEditor initialData={initialData} token={token} />
       </div>
