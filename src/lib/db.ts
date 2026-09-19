@@ -8,19 +8,29 @@ const globalForPrisma = globalThis as unknown as {
   pgPool?: Pool;
 };
 
-const cs = process.env.DATABASE_URL;
-if (!cs) {
+const databaseUrl = process.env.DATABASE_URL;
+if (!databaseUrl) {
   throw new Error(
     "Missing DATABASE_URL in environment. Add DATABASE_URL to your .env file.",
   );
 }
 
+const parsedDatabaseUrl = new URL(databaseUrl);
+if (
+  ["prefer", "require", "verify-ca"].includes(
+    parsedDatabaseUrl.searchParams.get("sslmode") ?? "",
+  )
+) {
+  // pg currently treats these modes as verify-full and warns that its future
+  // defaults will be weaker. Keep the current certificate verification explicit.
+  parsedDatabaseUrl.searchParams.set("sslmode", "verify-full");
+}
+const connectionString = parsedDatabaseUrl.toString();
+
 const pool =
   globalForPrisma.pgPool ??
   new Pool({
-    connectionString: cs,
-    // If you ever get SSL/cert errors with Neon, uncomment:
-    // ssl: { rejectUnauthorized: false },
+    connectionString,
   });
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.pgPool = pool;

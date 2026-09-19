@@ -9,6 +9,13 @@ config({ path: [`.env.${environment}.local`, ".env.local", `.env.${environment}`
 const databaseUrl = process.env.DATABASE_URL;
 const migrationUrl = databaseUrl ? new URL(databaseUrl) : undefined;
 if (migrationUrl) {
+  if (
+    ["prefer", "require", "verify-ca"].includes(
+      migrationUrl.searchParams.get("sslmode") ?? "",
+    )
+  ) {
+    migrationUrl.searchParams.set("sslmode", "verify-full");
+  }
   migrationUrl.searchParams.set(
     "schema",
     process.env.DATABASE_SCHEMA || "public",
