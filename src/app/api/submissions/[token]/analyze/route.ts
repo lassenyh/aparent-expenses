@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { get } from "@vercel/blob";
 import { prisma } from "@/lib/db";
 import { analyzeReceipt } from "@/lib/analyzeReceipt";
+import {
+  canAnalyzeSubmission,
+  receiptNeedsAnalysis,
+} from "@/lib/submissionAnalysis";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -44,9 +48,9 @@ export async function POST(
       return NextResponse.json({ error: "Submission not found" }, { status: 404 });
     }
 
-    if (submission.status !== "DRAFT") {
+    if (!canAnalyzeSubmission(submission.status)) {
       return NextResponse.json(
-        { error: "Submission is not in DRAFT" },
+        { error: "Kan bare analysere bilag i DRAFT eller REVIEW" },
         { status: 400 }
       );
     }
@@ -58,16 +62,21 @@ export async function POST(
       );
     }
 
-    for (const receipt of submission.receipts) {
+    const receiptsToAnalyze = submission.receipts.filter(receiptNeedsAnalysis);
+
+    for (const receipt of receiptsToAnalyze) {
       let bytes: Buffer;
       try {
         const result = await get(receipt.blobUrl, { access: "private" });
         if (!result || result.statusCode !== 200 || !result.stream) {
-          continue;
+          throw new Error(`Kunne ikke hente ${receipt.originalFileName}`);
         }
         bytes = await streamToBuffer(result.stream);
-      } catch {
-        continue;
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        throw new Error(
+          `Kunne ikke analysere ${receipt.originalFileName}: ${reason}`
+        );
       }
 
       const analyzed = await analyzeReceipt(bytes, receipt.mimeType);

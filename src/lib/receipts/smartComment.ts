@@ -18,6 +18,13 @@ const GROCERY_BRANDS = [
   "ica", "lidl", "normal", "europris", "grossist", "dagligvare",
 ];
 
+// Retailers such as Obs can sell both groceries and non-food goods. These
+// contexts must not inherit a meal flag solely from the retailer name. An
+// explicit food keyword can still add MEAL further down.
+const NON_GROCERY_CONTEXTS = [
+  "obs bygg", "byggvare", "byggvarer", "byggevare", "trelast", "jernvare",
+];
+
 const GAS_KIOSK = [
   "circle k", "shell", "esso", "7-eleven", "narvesen", "deli de luca",
   "yx", "st1", "best", "uno-x",
@@ -64,12 +71,6 @@ function normalize(s: string): string {
     .replace(/\p{M}/gu, "");
 }
 
-/** Matches when term appears as substring (for brands/phrases like "rema 1000"). */
-function containsAny(text: string, terms: string[]): boolean {
-  const n = normalize(text);
-  return terms.some((t) => n.includes(normalize(t)));
-}
-
 /** Matches only when term appears as a whole word (avoids "mat" in "automat", "vin" in "leveringsvindu"). */
 function containsWord(text: string, terms: string[]): boolean {
   const n = normalize(text);
@@ -102,7 +103,9 @@ export function detectSmartComment(input: {
     return { flags, suggestionByFlag };
   }
 
-  const isGrocery = containsWord(combined, GROCERY_BRANDS);
+  const isGrocery =
+    containsWord(combined, GROCERY_BRANDS) &&
+    !containsWord(combined, NON_GROCERY_CONTEXTS);
   const isGasKiosk = containsWord(combined, GAS_KIOSK);
   const hasFoodKeyword = containsWord(combined, FOOD_DRINK_KEYWORDS);
   if (isGrocery || isGasKiosk || hasFoodKeyword) {
