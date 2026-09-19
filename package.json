@@ -4,28 +4,30 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "db:migrate:dev": "NODE_ENV=development prisma migrate deploy",
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "tsx --test test/*.test.mjs"
+    "test": "node --import tsx --test test/*.test.mjs",
+    "typecheck": "tsc --noEmit --incremental false",
+    "benchmark:receipts": "node --import tsx scripts/benchmark-receipts.ts"
   },
   "dependencies": {
-    "@prisma/adapter-pg": "^7.4.2",
-    "@prisma/client": "^7.4.2",
+    "@prisma/adapter-pg": "^7.10.0",
+    "@prisma/client": "^7.10.0",
     "@sparticuz/chromium-min": "^143.0.4",
     "@vercel/blob": "^2.3.0",
     "heic-convert": "^2.1.0",
-    "next": "16.1.6",
+    "next": "16.3.5",
     "openai": "^6.25.0",
     "pdf-lib": "^1.17.1",
-    "pdf-parse": "^2.4.5",
     "pg": "^8.19.0",
-    "puppeteer": "^24.37.5",
-    "puppeteer-core": "^24.38.0",
+    "puppeteer": "^25.11.0",
+    "puppeteer-core": "^25.11.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "resend": "^6.9.3",
-    "sharp": "^0.34.5"
+    "sharp": "^0.35.4"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -36,10 +38,21 @@
     "@types/react-dom": "^19",
     "dotenv": "^17.3.1",
     "eslint": "^9",
-    "eslint-config-next": "16.1.6",
-    "prisma": "^7.4.2",
+    "eslint-config-next": "16.3.5",
+    "prisma": "^7.10.0",
     "tailwindcss": "^4",
     "tsx": "^4.23.13",
     "typescript": "^5"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "overrides": {
+    "@prisma/config": {
+      "deepmerge-ts": "8.0.0"
+    },
+    "prisma": {
+      "mysql2": "3.24.4"
+    }
   }
 }

@@ -26,7 +26,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Receipt not found" }, { status: 404 });
     }
 
-    if (token && receipt.submission.accessToken !== token) {
+    if (!token || receipt.submission.accessToken !== token) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -112,7 +112,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Receipt not found" }, { status: 404 });
     }
 
-    if (token && receipt.submission.accessToken !== token) {
+    if (!token || receipt.submission.accessToken !== token) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

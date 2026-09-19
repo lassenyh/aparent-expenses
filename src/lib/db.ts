@@ -11,7 +11,7 @@ const globalForPrisma = globalThis as unknown as {
 const cs = process.env.DATABASE_URL;
 if (!cs) {
   throw new Error(
-    "Missing DATABASE_URL in environment. Add DATABASE_URL to your .env file."
+    "Missing DATABASE_URL in environment. Add DATABASE_URL to your .env file.",
   );
 }
 
@@ -28,7 +28,9 @@ if (process.env.NODE_ENV !== "production") globalForPrisma.pgPool = pool;
 export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
-    adapter: new PrismaPg(pool),
+    adapter: new PrismaPg(pool, {
+      schema: process.env.DATABASE_SCHEMA || "public",
+    }),
     log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
   });
 

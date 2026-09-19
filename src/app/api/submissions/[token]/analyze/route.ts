@@ -1,3 +1,4 @@
+import { forEachConcurrent } from "@/lib/forEachConcurrent";
 import { NextResponse } from "next/server";
 import { get } from "@vercel/blob";
 import { prisma } from "@/lib/db";
@@ -64,7 +65,7 @@ export async function POST(
 
     const receiptsToAnalyze = submission.receipts.filter(receiptNeedsAnalysis);
 
-    for (const receipt of receiptsToAnalyze) {
+    await forEachConcurrent(receiptsToAnalyze, 2, async (receipt) => {
       let bytes: Buffer;
       try {
         const result = await get(receipt.blobUrl, { access: "private" });
@@ -98,7 +99,7 @@ export async function POST(
           commentFlags: stringifyCommentFlags(activeFlags),
         },
       });
-    }
+    });
 
     await prisma.submission.update({
       where: { id: submission.id },

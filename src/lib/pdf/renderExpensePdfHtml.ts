@@ -1,3 +1,5 @@
+import { expensePdfStyles } from "./expensePdfStyles";
+import { expensePdfFonts } from "./expensePdfFonts";
 import fs from "fs";
 import path from "path";
 import React from "react";
@@ -26,7 +28,7 @@ function getLogoDataUrl(): string | undefined {
 
 /**
  * Renders the expense PDF layout (same component as preview) to a full HTML document string.
- * Tailwind is loaded via CDN so the markup renders with the same styles when converted to PDF.
+ * Local CSS and embedded logo make PDF generation independent of external CDNs.
  * Uses dynamic import of react-dom/server to avoid Next.js App Router build error.
  */
 export async function renderExpensePdfHtml({
@@ -42,19 +44,16 @@ export async function renderExpensePdfHtml({
       receipts,
       totals,
       logoDataUrl,
-    })
+    }),
   );
 
   return `<!DOCTYPE html>
-<html lang="no">
+<html lang="nb">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Utlegg</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <script src="https://cdn.tailwindcss.com"></script>
+  <style>${expensePdfFonts}${expensePdfStyles}</style>
 </head>
 <body class="bg-white">
   ${body}

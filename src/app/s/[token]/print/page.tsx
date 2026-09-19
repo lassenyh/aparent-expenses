@@ -8,7 +8,7 @@ import {
 } from "@/components/pdf/ExpensePdfLayout";
 
 type Params = { token: string };
-type PageProps = { params: Params | Promise<Params> };
+type PageProps = { params: Promise<Params> };
 
 export default async function PrintPreviewPage(props: PageProps) {
   const { token } = await props.params;

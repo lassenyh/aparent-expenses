@@ -27,7 +27,7 @@ type ReceiptRow = {
   dismissedCommentFlags: string | null;
 };
 
-function mapToReceiptRow(r: any): ReceiptRow {
+function mapToReceiptRow(r: ReceiptRow): ReceiptRow {
   return {
     id: r.id,
     originalFileName: r.originalFileName,

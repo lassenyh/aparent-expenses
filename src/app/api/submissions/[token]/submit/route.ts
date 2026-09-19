@@ -124,6 +124,10 @@ export async function POST(
           : 0;
 
     if (body.receipts?.length) {
+      const ownedIds = new Set(submission.receipts.map((receipt) => receipt.id));
+      if (body.receipts.some((receipt) => !ownedIds.has(receipt.id))) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
       for (const r of body.receipts) {
         if (r.extractedTotalCents == null) {
           return NextResponse.json(

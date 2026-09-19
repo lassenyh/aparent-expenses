@@ -7,7 +7,7 @@ import { ReviewEditor } from "./ReviewEditor";
 
 type Params = { token: string };
 type PageProps = {
-  params: Params | Promise<Params>;
+  params: Promise<Params>;
 };
 
 export default async function ReviewPage(props: PageProps) {
@@ -24,9 +24,9 @@ export default async function ReviewPage(props: PageProps) {
 
   if (submission.status === "DRAFT") {
     const draftBgImages = [
-      "/background-1.jpg", "/background-2.jpg", "/background-3.jpg",
-      "/background-4.jpg", "/background-5.jpg", "/background-6.jpg",
-      "/background-7.jpg", "/background-8.jpg", "/background-9.jpg", "/background-10.jpg",
+      "/background-1.webp", "/background-2.webp", "/background-3.webp",
+      "/background-4.webp", "/background-5.webp", "/background-6.webp",
+      "/background-7.webp", "/background-8.webp", "/background-9.webp", "/background-10.webp",
     ];
     const draftBg = draftBgImages[Math.floor(Math.random() * draftBgImages.length)] ?? draftBgImages[0];
     return (
@@ -108,16 +108,16 @@ export default async function ReviewPage(props: PageProps) {
   }
 
   const backgroundImages = [
-    "/background-1.jpg",
-    "/background-2.jpg",
-    "/background-3.jpg",
-    "/background-4.jpg",
-    "/background-5.jpg",
-    "/background-6.jpg",
-    "/background-7.jpg",
-    "/background-8.jpg",
-    "/background-9.jpg",
-    "/background-10.jpg",
+    "/background-1.webp",
+    "/background-2.webp",
+    "/background-3.webp",
+    "/background-4.webp",
+    "/background-5.webp",
+    "/background-6.webp",
+    "/background-7.webp",
+    "/background-8.webp",
+    "/background-9.webp",
+    "/background-10.webp",
   ];
   const randomBg =
     backgroundImages[Math.floor(Math.random() * backgroundImages.length)] ?? backgroundImages[0];

@@ -1,3 +1,4 @@
+import { forEachConcurrent } from "@/lib/forEachConcurrent";
 import { NextResponse } from "next/server";
 import { get } from "@vercel/blob";
 import { prisma } from "@/lib/db";
@@ -71,16 +72,16 @@ export async function POST(
       );
     }
 
-    for (const receipt of toAnalyze) {
+    await forEachConcurrent(toAnalyze, 2, async (receipt) => {
       let bytes: Buffer;
       try {
         const result = await get(receipt.blobUrl, { access: "private" });
         if (!result || result.statusCode !== 200 || !result.stream) {
-          continue;
+          return;
         }
         bytes = await streamToBuffer(result.stream);
       } catch {
-        continue;
+        return;
       }
 
       const analyzed = await analyzeReceipt(bytes, receipt.mimeType);
@@ -102,7 +103,7 @@ export async function POST(
           commentFlags: stringifyCommentFlags(activeFlags),
         },
       });
-    }
+    });
 
     const updated = await prisma.submission.findUnique({
       where: { id: submission.id },

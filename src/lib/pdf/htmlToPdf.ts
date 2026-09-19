@@ -31,7 +31,7 @@ export async function htmlToPdf(html: string): Promise<Buffer> {
     try {
       const page = await browser.newPage();
       await page.setContent(html, {
-        waitUntil: "networkidle0",
+        waitUntil: "load",
       });
       const pdfBuffer = await page.pdf({
         format: "A4",
@@ -57,7 +57,7 @@ export async function htmlToPdf(html: string): Promise<Buffer> {
   try {
     const page = await browser.newPage();
     await page.setContent(html, {
-      waitUntil: "networkidle0",
+      waitUntil: "load",
     });
     const pdfBuffer = await page.pdf({
       format: "A4",
