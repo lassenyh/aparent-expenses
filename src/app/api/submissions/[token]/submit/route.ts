@@ -9,6 +9,8 @@ import { Resend } from "resend";
 import { renderExpensePdfHtml } from "@/lib/pdf/renderExpensePdfHtml";
 import { htmlToPdf } from "@/lib/pdf/htmlToPdf";
 import { appendReceiptPages } from "@/lib/pdf/appendReceiptPages";
+import { getAdminSubmitterEmail } from "@/lib/adminDefaults";
+import { isAdminSubmitterFlow } from "@/lib/adminSubmitterCookie";
 
 const ACCOUNT_NUMBER_LENGTH = 11;
 
@@ -58,8 +60,11 @@ export async function POST(
     return NextResponse.json({ error: "Missing token" }, { status: 400 });
   }
 
-  const adminEmail = process.env.ADMIN_EMAIL;
-  if (!adminEmail) {
+  const isAdminFlow = await isAdminSubmitterFlow();
+  const recipientEmail = isAdminFlow
+    ? getAdminSubmitterEmail()
+    : process.env.ADMIN_EMAIL;
+  if (!recipientEmail) {
     return NextResponse.json(
       { error: "ADMIN_EMAIL not configured" },
       { status: 500 }
@@ -198,6 +203,7 @@ export async function POST(
       blobUrl: r.blobUrl,
       mimeType: r.mimeType,
       summary: r.extractedSummary ?? "Kvittering",
+      originalFileName: r.originalFileName,
     }));
     async function getReceiptBytes(url: string): Promise<Buffer> {
       const result = await get(url, { access: "private" });
@@ -268,7 +274,7 @@ export async function POST(
         };
         const { data, error } = await resend.emails.send({
           from: fromAddress,
-          to: adminEmail,
+          to: recipientEmail,
           subject,
           html: `
           <p><strong>Navn:</strong> ${updated.name ?? "—"}</p>
@@ -283,7 +289,13 @@ export async function POST(
         if (error) {
           console.error("[submit] Resend e-post feilet:", error);
         } else {
-          console.log("[submit] E-post sendt til", adminEmail, "id:", data?.id);
+          console.log(
+            "[submit] E-post sendt til",
+            recipientEmail,
+            isAdminFlow ? "(admin)" : "",
+            "id:",
+            data?.id
+          );
         }
       } catch (emailErr) {
         console.error("[submit] E-post send kastet:", emailErr);

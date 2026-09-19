@@ -144,6 +144,7 @@ export async function POST(
       blobUrl: r.blobUrl,
       mimeType: r.mimeType,
       summary: r.extractedSummary ?? "Kvittering",
+      originalFileName: r.originalFileName,
     }));
     async function getReceiptBytes(url: string): Promise<Buffer> {
       const result = await get(url, { access: "private" });

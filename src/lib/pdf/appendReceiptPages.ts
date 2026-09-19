@@ -1,5 +1,5 @@
-import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
-import sharp from "sharp";
+import { PDFDocument } from "pdf-lib";
+import { normalizeReceiptImage } from "@/lib/images/normalizeReceiptImage";
 
 const A4_WIDTH = 595.28;
 const A4_HEIGHT = 841.89;
@@ -9,7 +9,12 @@ export type ReceiptForAppend = {
   blobUrl: string;
   mimeType: string;
   summary?: string;
+  originalFileName?: string;
 };
+
+function receiptLabel(receipt: ReceiptForAppend): string {
+  return receipt.originalFileName || receipt.summary || "kvittering";
+}
 
 /**
  * Appends one page per receipt to the summary PDF (first page from HTML).
@@ -21,7 +26,6 @@ export async function appendReceiptPages(
   getReceiptBytes: (url: string) => Promise<Buffer>
 ): Promise<Buffer> {
   const doc = await PDFDocument.load(new Uint8Array(summaryPdfBuffer));
-  const font = doc.embedStandardFont(StandardFonts.Helvetica);
 
   for (const receipt of receipts) {
     const bytes = await getReceiptBytes(receipt.blobUrl);
@@ -34,34 +38,14 @@ export async function appendReceiptPages(
         const indices = pages.map((_, i) => i);
         const copied = await doc.copyPages(srcDoc, indices);
         copied.forEach((p) => doc.addPage(p));
-      } catch {
-        const page = doc.addPage([A4_WIDTH, A4_HEIGHT]);
-        page.drawText(`Kvittering: ${receipt.summary || "PDF"}`, {
-          x: MARGIN,
-          y: A4_HEIGHT - MARGIN,
-          size: 12,
-          font,
-          color: rgb(0, 0, 0),
-        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        throw new Error(`Kunne ikke legge ved PDF-en ${receiptLabel(receipt)}: ${message}`);
       }
     } else {
       try {
-        const isJpegOrHeic =
-          receipt.mimeType.toLowerCase().includes("jpeg") ||
-          receipt.mimeType.toLowerCase().includes("jpg") ||
-          receipt.mimeType.toLowerCase().includes("heic");
-        let imageBytes = bytes;
-        try {
-          const pipeline = sharp(bytes).rotate();
-          imageBytes = isJpegOrHeic
-            ? await pipeline.jpeg().toBuffer()
-            : await pipeline.png().toBuffer();
-        } catch {
-          imageBytes = bytes;
-        }
-        const img = isJpegOrHeic
-          ? await doc.embedJpg(new Uint8Array(imageBytes))
-          : await doc.embedPng(new Uint8Array(imageBytes));
+        const imageBytes = await normalizeReceiptImage(bytes, receipt.mimeType);
+        const img = await doc.embedJpg(new Uint8Array(imageBytes));
         const imgW = img.width;
         const imgH = img.height;
         const isLandscape = imgW > imgH;
@@ -77,15 +61,9 @@ export async function appendReceiptPages(
           width: dims.width,
           height: dims.height,
         });
-      } catch {
-        const page = doc.addPage([A4_WIDTH, A4_HEIGHT]);
-        page.drawText(`Bilde: ${receipt.summary || "Kvittering"}`, {
-          x: MARGIN,
-          y: A4_HEIGHT - MARGIN,
-          size: 12,
-          font,
-          color: rgb(0, 0, 0),
-        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        throw new Error(`Kunne ikke behandle bildet ${receiptLabel(receipt)}: ${message}`);
       }
     }
   }

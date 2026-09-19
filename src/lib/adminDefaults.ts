@@ -1,6 +1,9 @@
 /** Cookie satt når bruker startet fra /admin/new */
 export const ADMIN_SUBMITTER_COOKIE = "admin-submitter";
 
+/** Standard e-postmottaker for admin-innsendinger (eBilag). */
+export const DEFAULT_ADMIN_SUBMITTER_EMAIL = "aparentas@ebilag.com";
+
 export type AdminSubmitterDefaults = {
   name: string;
   accountNumber: string;
@@ -11,12 +14,21 @@ export type AdminSubmitterDefaults = {
  * Sett i .env og Vercel:
  *   ADMIN_SUBMITTER_NAME="Ditt fulle navn"
  *   ADMIN_SUBMITTER_ACCOUNT="12345678901"  (11 sifre)
+ * Valgfritt:
+ *   ADMIN_SUBMITTER_EMAIL="aparentas@ebilag.com"  (default hvis ikke satt)
  */
 export function getAdminSubmitterDefaults(): AdminSubmitterDefaults | null {
   const name = process.env.ADMIN_SUBMITTER_NAME?.trim();
   const digits = process.env.ADMIN_SUBMITTER_ACCOUNT?.replace(/\D/g, "") ?? "";
   if (!name || digits.length !== 11) return null;
   return { name, accountNumber: digits };
+}
+
+/** E-postmottaker for admin-flyt. Default: aparentas@ebilag.com */
+export function getAdminSubmitterEmail(): string {
+  return (
+    process.env.ADMIN_SUBMITTER_EMAIL?.trim() || DEFAULT_ADMIN_SUBMITTER_EMAIL
+  );
 }
 
 export function isAdminSubmitterConfigured(): boolean {

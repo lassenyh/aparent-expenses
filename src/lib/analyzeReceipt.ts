@@ -6,6 +6,10 @@ import OpenAI from "openai";
 import { toFile } from "openai/uploads";
 import type { AnalyzeReceiptResult } from "./analyzeReceipt.types";
 import { convertToNokCents } from "./currency";
+import {
+  detectReceiptImageFormat,
+  normalizeReceiptImage,
+} from "./images/normalizeReceiptImage";
 
 const SYSTEM_PROMPT = `Du er en assistent som analyserer kvitteringer.
 Svær ALLTID med nøyaktig ett JSON-objekt uten annen tekst:
@@ -284,15 +288,14 @@ export async function analyzeReceipt(
   }
 
   // HEIC (iPhone) støttes ikke direkte av OpenAI Vision – konverter til JPEG
-  const isHeic = mimeType.toLowerCase().includes("heic");
+  const isHeic = detectReceiptImageFormat(bytes, mimeType) === "heic";
   if (isHeic) {
     try {
-      const sharp = (await import("sharp")).default;
-      const jpegBytes = await sharp(bytes).rotate().jpeg().toBuffer();
+      const jpegBytes = await normalizeReceiptImage(bytes, mimeType);
       return analyzeWithVision(jpegBytes, "image/jpeg");
     } catch (err) {
       console.warn("[analyzeReceipt] HEIC→JPEG konvertering feilet:", err instanceof Error ? err.message : err);
-      return analyzeWithVision(bytes, mimeType);
+      return STUB_RESULT;
     }
   }
 

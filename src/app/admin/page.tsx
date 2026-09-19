@@ -10,7 +10,8 @@ export default function AdminPage() {
         <h1 className="text-2xl font-semibold">Admin – utlegg</h1>
         <p className="text-sm text-neutral-400 leading-relaxed">
           Samme flyt som vanlig innsending, men navn og kontonummer er forhåndsutfylt
-          fra miljøvariabler.
+          fra miljøvariabler. E-post sendes til{" "}
+          <span className="text-neutral-300">aparentas@ebilag.com</span>.
         </p>
         {configured ? (
           <Link
