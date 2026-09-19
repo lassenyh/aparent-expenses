@@ -8,8 +8,11 @@ const environment = process.env.NODE_ENV || "production";
 config({ path: [`.env.${environment}.local`, ".env.local", `.env.${environment}`, ".env"], quiet: true });
 const databaseUrl = process.env.DATABASE_URL;
 const migrationUrl = databaseUrl ? new URL(databaseUrl) : undefined;
-if (migrationUrl && process.env.DATABASE_SCHEMA) {
-  migrationUrl.searchParams.set("schema", process.env.DATABASE_SCHEMA);
+if (migrationUrl) {
+  migrationUrl.searchParams.set(
+    "schema",
+    process.env.DATABASE_SCHEMA || "public",
+  );
 }
 
 export default defineConfig({
