@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { AppHeader } from "@/components/AppHeader";
 import { getAdminEmail } from "@/lib/adminAuth";
-import { supabaseConfig } from "@/lib/supabase/config";
+import { isAdminAuthConfigured } from "@/lib/supabase/config";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { LoginForm } from "./LoginForm";
 import { signOut } from "./actions";
@@ -30,7 +30,7 @@ export default async function AdminLoginPage({
             <h1 className="text-2xl font-semibold tracking-[-0.02em] text-ink">Admin</h1>
             <p className="text-sm leading-relaxed text-muted">Logg inn for å opprette prosjekter og lenker.</p>
           </div>
-          {!supabaseConfig() ? (
+          {!isAdminAuthConfigured() ? (
             <p className="rounded-lg border border-warn-line bg-warn-bg px-4 py-3 text-sm text-warn-ink">
               Innlogging er ikke satt opp. Sett <code className="font-mono text-[12.5px]">NEXT_PUBLIC_SUPABASE_URL</code>,{" "}
               <code className="font-mono text-[12.5px]">NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY</code> og{" "}

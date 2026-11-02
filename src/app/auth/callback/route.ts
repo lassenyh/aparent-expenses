@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { authDestination } from "@/lib/authRedirect";
 
 /** Where the sign-in link in the e-mail lands. Handles both the default link and a token_hash template. */
 export async function GET(request: Request) {
@@ -16,5 +17,9 @@ export async function GET(request: Request) {
   } else if (supabase && tokenHash && type) {
     ok = !(await supabase.auth.verifyOtp({ token_hash: tokenHash, type })).error;
   }
-  return NextResponse.redirect(new URL(ok ? "/admin" : "/admin/login?feil=lenke", request.url));
+  const destination = authDestination(url.searchParams.get("next"));
+  const response = NextResponse.redirect(new URL(ok ? destination : "/admin/login?feil=lenke", request.url));
+  response.headers.set("Cache-Control", "private, no-store");
+  response.headers.set("Referrer-Policy", "no-referrer");
+  return response;
 }
