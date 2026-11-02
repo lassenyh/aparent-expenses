@@ -1,14 +1,15 @@
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { get, put } from "@vercel/blob";
 import { prisma } from "@/lib/db";
 import { SubmissionStatus } from "@prisma/client";
 import { Resend } from "resend";
 import { renderExpensePdfHtml } from "@/lib/pdf/renderExpensePdfHtml";
 import { htmlToPdf } from "@/lib/pdf/htmlToPdf";
-import { appendReceiptPages } from "@/lib/pdf/appendReceiptPages";
+import { appendPreparedReceiptPages, prepareReceiptFiles } from "@/lib/pdf/appendReceiptPages";
+import { readReceiptPreview } from "@/lib/receiptPreview";
 import { getAdminSubmitterEmail } from "@/lib/adminDefaults";
 import { isAdminSubmitterFlow } from "@/lib/adminSubmitterCookie";
 
@@ -206,15 +207,15 @@ export async function POST(
         diffCents,
       },
     });
-    const summaryPdfBytes = await htmlToPdf(pdfHtml);
-
     const receiptsForAppend = updated.receipts.map((r) => ({
       blobUrl: r.blobUrl,
       mimeType: r.mimeType,
+      previewKey: r.id,
       parts: r.parts.map((part) => ({
         blobUrl: part.blobUrl,
         mimeType: part.mimeType,
         originalFileName: part.originalFileName,
+        previewKey: `part-${part.id}`,
       })),
       summary: r.extractedSummary ?? "Kvittering",
       originalFileName: r.originalFileName,
@@ -226,11 +227,12 @@ export async function POST(
       }
       return streamToBuffer(result.stream);
     }
-    const pdfBytes = await appendReceiptPages(
-      summaryPdfBytes,
-      receiptsForAppend,
-      getReceiptBytes
-    );
+    // The summary page (Chrome) and the receipt images are independent, so they are made at the same time.
+    const [summaryPdfBytes, preparedFiles] = await Promise.all([
+      htmlToPdf(pdfHtml),
+      prepareReceiptFiles(receiptsForAppend, getReceiptBytes, readReceiptPreview),
+    ]);
+    const pdfBytes = await appendPreparedReceiptPages(summaryPdfBytes, preparedFiles);
 
     if (pdfBytes.length > MAX_PDF_SIZE_BYTES) {
       return NextResponse.json(
@@ -260,63 +262,67 @@ export async function POST(
     const baseUrl = getBaseUrl(request);
     const pdfDownloadUrl = `${baseUrl}/api/submissions/${token}/pdf`;
 
-    const resendKey = process.env.RESEND_API_KEY;
-    if (resendKey) {
-      try {
-        const resend = new Resend(resendKey);
-        const diffLabel =
-          diffCents > 0
-            ? "Til utbetaling (Aparent skylder deg)"
-            : diffCents < 0
-              ? "Tilbakebetaling (du skylder Aparent)"
-              : "I balanse";
-        const fromAddress =
-          process.env.RESEND_FROM ?? "Utlegg <onboarding@resend.dev>";
-        const projectPrefix = [updated.projectNumber?.trim(), updated.project?.trim()]
-          .filter(Boolean)
-          .join(" – ");
-        const projectPrefixForFilename = [updated.projectNumber?.trim(), updated.project?.trim()]
-          .filter(Boolean)
-          .join(" ")
-          .replace(/[/\\:*?"<>|]/g, "")
-          .replace(/\s+/g, "_") || "utlegg";
-        const subjectParts = projectPrefix ? [projectPrefix, updated.name?.trim()].filter(Boolean) : [updated.name?.trim()].filter(Boolean);
-        const subject = subjectParts.length > 0 ? subjectParts.join(" – ") : "Utlegg";
-        const pdfAttachment = {
-          filename: `${projectPrefixForFilename}_utlegg.pdf`,
-          content: Buffer.from(pdfBytes).toString("base64"),
-        };
-        const { data, error } = await resend.emails.send({
-          from: fromAddress,
-          to: recipientEmail,
-          subject,
-          html: `
-          <p><strong>Navn:</strong> ${updated.name ?? "—"}</p>
-          <p><strong>Prosjekt:</strong> ${projectPrefix || "—"}</p>
-          <p><strong>Total:</strong> ${(totalCents / 100).toFixed(2)} kr</p>
-          <p><strong>Produksjonskasse:</strong> ${(productionCashCents / 100).toFixed(2)} kr</p>
-          <p><strong>${diffLabel}:</strong> ${(diffCents / 100).toFixed(2)} kr</p>
-          <p>PDF er vedlagt. Du kan også <a href="${pdfDownloadUrl}">laste ned her</a>.</p>
-        `,
-          attachments: [pdfAttachment],
-        });
-        if (error) {
-          console.error("[submit] Resend e-post feilet:", error);
-        } else {
-          console.log(
-            "[submit] E-post sendt til",
-            recipientEmail,
-            isAdminFlow ? "(admin)" : "",
-            "id:",
-            data?.id
-          );
+    // The claim is saved and the PDF stored; the e-mail is sent after the response so the
+    // user does not wait for it. Its outcome was only logged before, and still is.
+    after(async () => {
+      const resendKey = process.env.RESEND_API_KEY;
+      if (resendKey) {
+        try {
+          const resend = new Resend(resendKey);
+          const diffLabel =
+            diffCents > 0
+              ? "Til utbetaling (Aparent skylder deg)"
+              : diffCents < 0
+                ? "Tilbakebetaling (du skylder Aparent)"
+                : "I balanse";
+          const fromAddress =
+            process.env.RESEND_FROM ?? "Utlegg <onboarding@resend.dev>";
+          const projectPrefix = [updated.projectNumber?.trim(), updated.project?.trim()]
+            .filter(Boolean)
+            .join(" – ");
+          const projectPrefixForFilename = [updated.projectNumber?.trim(), updated.project?.trim()]
+            .filter(Boolean)
+            .join(" ")
+            .replace(/[/\\:*?"<>|]/g, "")
+            .replace(/\s+/g, "_") || "utlegg";
+          const subjectParts = projectPrefix ? [projectPrefix, updated.name?.trim()].filter(Boolean) : [updated.name?.trim()].filter(Boolean);
+          const subject = subjectParts.length > 0 ? subjectParts.join(" – ") : "Utlegg";
+          const pdfAttachment = {
+            filename: `${projectPrefixForFilename}_utlegg.pdf`,
+            content: Buffer.from(pdfBytes).toString("base64"),
+          };
+          const { data, error } = await resend.emails.send({
+            from: fromAddress,
+            to: recipientEmail,
+            subject,
+            html: `
+            <p><strong>Navn:</strong> ${updated.name ?? "—"}</p>
+            <p><strong>Prosjekt:</strong> ${projectPrefix || "—"}</p>
+            <p><strong>Total:</strong> ${(totalCents / 100).toFixed(2)} kr</p>
+            <p><strong>Produksjonskasse:</strong> ${(productionCashCents / 100).toFixed(2)} kr</p>
+            <p><strong>${diffLabel}:</strong> ${(diffCents / 100).toFixed(2)} kr</p>
+            <p>PDF er vedlagt. Du kan også <a href="${pdfDownloadUrl}">laste ned her</a>.</p>
+          `,
+            attachments: [pdfAttachment],
+          });
+          if (error) {
+            console.error("[submit] Resend e-post feilet:", error);
+          } else {
+            console.log(
+              "[submit] E-post sendt til",
+              recipientEmail,
+              isAdminFlow ? "(admin)" : "",
+              "id:",
+              data?.id
+            );
+          }
+        } catch (emailErr) {
+          console.error("[submit] E-post send kastet:", emailErr);
         }
-      } catch (emailErr) {
-        console.error("[submit] E-post send kastet:", emailErr);
+      } else {
+        console.warn("[submit] RESEND_API_KEY er ikke satt – e-post ble ikke sendt.");
       }
-    } else {
-      console.warn("[submit] RESEND_API_KEY er ikke satt – e-post ble ikke sendt.");
-    }
+    });
 
     return NextResponse.json({ combinedPdfUrl: pdfDownloadUrl });
   } catch (error) {
