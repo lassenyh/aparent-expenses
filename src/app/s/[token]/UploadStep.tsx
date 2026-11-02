@@ -335,7 +335,7 @@ export function UploadStep({
                   </div>
                   <div className="flex items-center gap-1">
                     <a
-                      href={r.blobUrl}
+                      href={`/api/submissions/${encodeURIComponent(token)}/receipts/${encodeURIComponent(r.id)}/blob`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex h-[30px] items-center rounded-md px-2.5 text-[13px] text-muted hover:bg-raised hover:text-ink"
