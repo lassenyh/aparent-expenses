@@ -668,6 +668,7 @@ export function ReviewEditor({
         comment: r.comment ?? null,
         originalAmountCents: r.originalAmountCents ?? null,
         extractedCurrency: r.extractedCurrency ?? null,
+        merchant: r.merchant ?? null,
       })),
       totals: { totalCents, productionCashCents, diffCents },
     };

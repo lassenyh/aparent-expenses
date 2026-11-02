@@ -23,7 +23,24 @@ export type ExpensePdfReceipt = {
   originalAmountCents?: number | null;
   /** ISO currency code (e.g. SEK, EUR). Shown with original amount when not NOK. */
   extractedCurrency?: string | null;
+  /** Shop or supplier read from the receipt. Shown as a grey tag after the description. */
+  merchant?: string | null;
 };
+
+/* Inline styles: the PDF uses precompiled CSS that has no classes for this tag. */
+const merchantTagStyle = {
+  display: "inline-block",
+  marginLeft: 8,
+  padding: "1px 6px",
+  border: "1px solid #e5e7eb",
+  borderRadius: 4,
+  background: "#f9fafb",
+  color: "#6b7280",
+  fontSize: 12,
+  fontWeight: 400,
+  lineHeight: 1.5,
+  verticalAlign: "1px",
+} as const;
 
 export type ExpensePdfTotals = {
   totalCents: number;
@@ -202,6 +219,7 @@ export function ExpensePdfLayout({
                     </td>
                     <td className="px-4 py-3 font-medium text-gray-900 print:text-black">
                       <span>{r.summary || "Kvittering"}</span>
+                      {r.merchant?.trim() && <span style={merchantTagStyle}>{r.merchant.trim()}</span>}
                       {r.originalAmountCents != null &&
                         r.extractedCurrency &&
                         r.extractedCurrency.toUpperCase() !== "NOK" && (
