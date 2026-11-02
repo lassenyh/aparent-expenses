@@ -1,34 +1,16 @@
 import { forEachConcurrent } from "@/lib/forEachConcurrent";
 import { NextResponse } from "next/server";
-import { get } from "@vercel/blob";
 import { prisma } from "@/lib/db";
-import { analyzeReceipt } from "@/lib/analyzeReceipt";
+import { analyzeAndStoreReceipt, readReceiptBlob } from "@/lib/analyzeStoredReceipt";
 import {
+  ANALYSIS_CONCURRENCY,
   canAnalyzeSubmission,
   receiptNeedsAnalysis,
 } from "@/lib/submissionAnalysis";
+import { SubmissionStatus } from "@prisma/client";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
-import {
-  detectSmartComment,
-  parseCommentFlags,
-  stringifyCommentFlags,
-} from "@/lib/receipts/smartComment";
-import { SubmissionStatus } from "@prisma/client";
-
-async function streamToBuffer(
-  stream: ReadableStream<Uint8Array>
-): Promise<Buffer> {
-  const reader = stream.getReader();
-  const chunks: Uint8Array[] = [];
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    if (value) chunks.push(value);
-  }
-  return Buffer.concat(chunks);
-}
 
 export async function POST(
   _request: Request,
@@ -65,40 +47,18 @@ export async function POST(
 
     const receiptsToAnalyze = submission.receipts.filter(receiptNeedsAnalysis);
 
-    await forEachConcurrent(receiptsToAnalyze, 2, async (receipt) => {
-      let bytes: Buffer;
+    await forEachConcurrent(receiptsToAnalyze, ANALYSIS_CONCURRENCY, async (receipt) => {
+      let bytes: Buffer | null;
       try {
-        const result = await get(receipt.blobUrl, { access: "private" });
-        if (!result || result.statusCode !== 200 || !result.stream) {
-          throw new Error(`Kunne ikke hente ${receipt.originalFileName}`);
-        }
-        bytes = await streamToBuffer(result.stream);
+        bytes = await readReceiptBlob(receipt.blobUrl);
+        if (!bytes) throw new Error(`Kunne ikke hente ${receipt.originalFileName}`);
       } catch (error) {
         const reason = error instanceof Error ? error.message : String(error);
         throw new Error(
           `Kunne ikke analysere ${receipt.originalFileName}: ${reason}`
         );
       }
-
-      const analyzed = await analyzeReceipt(bytes, receipt.mimeType);
-      const { flags } = detectSmartComment({
-        description: analyzed.summary,
-        vendor: receipt.originalFileName,
-        extractedText: analyzed.extractedText,
-      });
-      const dismissed = parseCommentFlags(receipt.dismissedCommentFlags);
-      const activeFlags = flags.filter((f) => !dismissed.includes(f));
-
-      await prisma.receipt.update({
-        where: { id: receipt.id },
-        data: {
-          extractedSummary: analyzed.summary,
-          extractedTotalCents: analyzed.totalCents,
-          extractedCurrency: analyzed.currency ?? "NOK",
-          originalAmountCents: analyzed.originalAmountCents ?? undefined,
-          commentFlags: stringifyCommentFlags(activeFlags),
-        },
-      });
+      await analyzeAndStoreReceipt(receipt, bytes);
     });
 
     await prisma.submission.update({

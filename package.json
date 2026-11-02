@@ -10,14 +10,15 @@
     "lint": "eslint",
     "test": "node --import tsx --test test/*.test.mjs",
     "typecheck": "tsc --noEmit --incremental false",
-    "benchmark:receipts": "node --import tsx scripts/benchmark-receipts.ts"
+    "benchmark:receipts": "node --import tsx scripts/benchmark-receipts.ts",
+    "benchmark:fixtures": "node --import tsx scripts/receipt-fixtures.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
     "@sparticuz/chromium-min": "^143.0.4",
     "@vercel/blob": "^2.3.0",
-    "heic-convert": "^2.1.0",
+    "heic-decode": "^2.1.0",
     "next": "16.3.5",
     "openai": "^6.25.0",
     "pdf-lib": "^1.17.1",
@@ -31,7 +32,6 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
-    "@types/heic-convert": "^2.1.1",
     "@types/node": "^20",
     "@types/pg": "^8.18.0",
     "@types/react": "^19",

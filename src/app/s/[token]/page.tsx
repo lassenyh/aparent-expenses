@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
+import { getInitialSubmissionInfo } from "@/lib/submissionInfo";
 import { UploadStep } from "./UploadStep";
 
 type Params = { token: string };
@@ -29,7 +30,10 @@ export default async function SubmissionPage(props: PageProps) {
     mimeType: r.mimeType,
     sizeBytes: r.sizeBytes,
     blobUrl: r.blobUrl,
+    analyzed: r.extractedSummary != null,
   }));
+
+  const initialInfo = await getInitialSubmissionInfo(submission);
 
   const backgroundImages = [
     "/background-1.webp",
@@ -83,7 +87,7 @@ export default async function SubmissionPage(props: PageProps) {
                 Sørg for at beskrivelsen av kvitteringen matcher kjøpet før du sender inn.
               </p>
             </section>
-            <UploadStep token={token} receipts={receipts} />
+            <UploadStep token={token} receipts={receipts} initialInfo={initialInfo} />
             </div>
           </div>
         </>

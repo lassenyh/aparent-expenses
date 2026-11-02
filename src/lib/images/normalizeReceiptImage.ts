@@ -1,4 +1,4 @@
-import convertHeic from "heic-convert";
+import decodeHeic from "heic-decode";
 import sharp from "sharp";
 
 export type ReceiptImageFormat = "jpeg" | "png" | "gif" | "webp" | "heic" | "unknown";
@@ -44,25 +44,26 @@ export function detectReceiptImageFormat(
 }
 
 /**
- * Produces a PDF-safe JPEG with bounded dimensions. HEIC is decoded with the
- * portable libheif-js based converter because prebuilt sharp/libvips binaries
- * do not include patent-encumbered HEVC decoding.
+ * Produces a PDF-safe JPEG with bounded dimensions. HEIC is decoded with
+ * libheif-js because prebuilt sharp/libvips binaries do not include
+ * patent-encumbered HEVC decoding. The decoded pixels go straight to sharp;
+ * encoding an intermediate full-size JPEG in JavaScript took about a third of
+ * the time for a 12-megapixel iPhone photo.
  */
 export async function normalizeReceiptImage(bytes: Buffer, mimeType: string): Promise<Buffer> {
   const format = detectReceiptImageFormat(bytes, mimeType);
-  let decodableBytes = bytes;
+  let image: ReturnType<typeof sharp>;
 
   if (format === "heic") {
-    decodableBytes = Buffer.from(
-      await convertHeic({
-        buffer: bytes,
-        format: "JPEG",
-        quality: 0.9,
-      })
-    );
+    const { width, height, data } = await decodeHeic({ buffer: bytes });
+    image = sharp(Buffer.from(data.buffer, data.byteOffset, data.byteLength), {
+      raw: { width, height, channels: 4 },
+    });
+  } else {
+    image = sharp(bytes);
   }
 
-  return sharp(decodableBytes)
+  return image
     .rotate()
     .flatten({ background: "#ffffff" })
     .resize({

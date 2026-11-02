@@ -1,4 +1,5 @@
 import { REPAYMENT_ACCOUNT_NUMBER } from "@/lib/constants";
+import { currencyDisplay } from "@/lib/currencyDisplay";
 
 /**
  * Shared layout for expense PDF. No "use client" so it can be rendered on the server
@@ -205,7 +206,7 @@ export function ExpensePdfLayout({
                         r.extractedCurrency &&
                         r.extractedCurrency.toUpperCase() !== "NOK" && (
                           <span className="ml-2 text-gray-500 print:text-gray-600">
-                            {(r.originalAmountCents / 100).toFixed(2)} {r.extractedCurrency}
+                            {(r.originalAmountCents / 100).toFixed(2)} {currencyDisplay(r.extractedCurrency)}
                           </span>
                         )}
                     </td>

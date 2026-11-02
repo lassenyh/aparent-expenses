@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { upload } from "@vercel/blob/client";
 import { parseCommentFlags, type SmartFlag } from "@/lib/receipts/smartComment";
 import { REPAYMENT_ACCOUNT_NUMBER } from "@/lib/constants";
+import { currencyDisplay } from "@/lib/currencyDisplay";
 
 const PREVIEW_STORAGE_KEY = "expense-preview";
 
@@ -105,6 +106,15 @@ export function ReviewEditor({
   const [showCommentErrors, setShowCommentErrors] = useState(false);
   const [showAmountErrors, setShowAmountErrors] = useState(false);
   const [showFieldErrors, setShowFieldErrors] = useState(false);
+  /** Info filled in on the upload page is shown as a summary until the user chooses to edit it. */
+  const [infoExpanded, setInfoExpanded] = useState(
+    () =>
+      !(
+        initialData.name?.trim() &&
+        initialData.project?.trim() &&
+        (initialData.accountNumber ?? "").replace(/\D/g, "").length === 11
+      )
+  );
   const [commentExpandedIds, setCommentExpandedIds] = useState<Set<string>>(
     () =>
       new Set(
@@ -168,7 +178,9 @@ export function ReviewEditor({
         r.extractedCurrency.toUpperCase() !== "NOK"
     );
     if (firstForeign) {
-      setForeignCurrencyCode(firstForeign.extractedCurrency?.toUpperCase() ?? null);
+      setForeignCurrencyCode(
+        firstForeign.extractedCurrency ? currencyDisplay(firstForeign.extractedCurrency.toUpperCase()) : null
+      );
       setShowCurrencyInfoModal(true);
     }
   }, []);
@@ -326,7 +338,9 @@ export function ReviewEditor({
             }
           }
           if (firstForeign) {
-            setForeignCurrencyCode(firstForeign.extractedCurrency?.toUpperCase() ?? null);
+            setForeignCurrencyCode(
+              firstForeign.extractedCurrency ? currencyDisplay(firstForeign.extractedCurrency.toUpperCase()) : null
+            );
             setShowCurrencyInfoModal(true);
           }
         }
@@ -663,6 +677,50 @@ export function ReviewEditor({
         </>
       ) : (
         <>
+      {!infoExpanded ? (
+      <section className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-6">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 className="text-lg font-medium text-neutral-200">
+            Person- og prosjektinfo
+          </h2>
+          <button
+            type="button"
+            onClick={() => setInfoExpanded(true)}
+            className="rounded-lg border border-neutral-600 bg-neutral-800 px-3 py-1.5 text-sm text-neutral-300 hover:border-neutral-500 hover:bg-neutral-700 hover:text-white"
+          >
+            Endre
+          </button>
+        </div>
+        <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+          <div>
+            <dt className="text-neutral-400">Navn</dt>
+            <dd className="text-white">{name}</dd>
+          </div>
+          <div>
+            <dt className="text-neutral-400">Kontonummer</dt>
+            <dd className="text-white tabular-nums">{accountNumber}</dd>
+          </div>
+          <div>
+            <dt className="text-neutral-400">Prosjekt</dt>
+            <dd className="text-white">
+              {[projectNumber.trim(), project.trim()].filter(Boolean).join(" – ")}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-neutral-400">Dato</dt>
+            <dd className="text-white tabular-nums">
+              {workDate ? workDate.split("-").reverse().join(".") : "Ikke oppgitt"}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-neutral-400">Prod.penger / forskudd</dt>
+            <dd className="text-white tabular-nums">
+              {productionCash.trim() === "" ? "Ikke oppgitt" : formatNok(productionCashCents)}
+            </dd>
+          </div>
+        </dl>
+      </section>
+      ) : (
       <section className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-6">
         <h2 className="text-lg font-medium text-neutral-200 mb-4">
           Person- og prosjektinfo
@@ -810,6 +868,7 @@ export function ReviewEditor({
           </div>
         </div>
       </section>
+      )}
 
       <section
         className={`rounded-xl border-2 border-dashed p-6 transition-colors ${
@@ -984,7 +1043,7 @@ export function ReviewEditor({
                             r.extractedCurrency &&
                             r.extractedCurrency.toUpperCase() !== "NOK" && (
                               <span className="shrink-0 text-xs text-neutral-400 whitespace-nowrap">
-                                {(r.originalAmountCents / 100).toFixed(2)} {r.extractedCurrency}
+                                {(r.originalAmountCents / 100).toFixed(2)} {currencyDisplay(r.extractedCurrency)}
                               </span>
                             )}
                           {activeFlags.includes("MEAL") && (

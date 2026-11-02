@@ -32,7 +32,8 @@ export async function PATCH(request: Request) {
       select: { id: true, status: true },
     });
 
-    if (!submission || submission.status !== "DRAFT") {
+    // REVIEW is editable too: the info dialog can open when receipts are added from review.
+    if (!submission || (submission.status !== "DRAFT" && submission.status !== "REVIEW")) {
       return NextResponse.json(
         { error: "Submission not found or not editable" },
         { status: 404 }

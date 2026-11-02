@@ -1,8 +1,11 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { upload } from "@vercel/blob/client";
+import { forEachConcurrent } from "@/lib/forEachConcurrent";
+import { mergeReceipts } from "@/lib/mergeReceipts";
+import { SubmissionInfoModal, type SubmissionInfo } from "./SubmissionInfoModal";
 
 type ReceiptItem = {
   id: string;
@@ -10,7 +13,15 @@ type ReceiptItem = {
   mimeType: string;
   sizeBytes: number;
   blobUrl: string;
+  /** Set by the page for receipts that were already analysed before this visit. */
+  analyzed?: boolean;
 };
+
+type AnalysisState = "pending" | "done" | "error";
+
+const UPLOAD_CONCURRENCY = 3;
+/** Background analyses per browser; each is its own server request. */
+const BACKGROUND_ANALYSIS_CONCURRENCY = 3;
 
 function isPdf(mime: string): boolean {
   return mime.toLowerCase().includes("pdf");
@@ -19,31 +30,92 @@ function isPdf(mime: string): boolean {
 export function UploadStep({
   token,
   receipts: initialReceipts,
+  initialInfo,
 }: {
   token: string;
   receipts: ReceiptItem[];
+  initialInfo: Omit<SubmissionInfo, "workDate"> & { workDate: string | null };
 }) {
   const router = useRouter();
   const [receipts, setReceipts] = useState<ReceiptItem[]>(initialReceipts);
   const [uploadingFiles, setUploadingFiles] = useState<Array<{ id: string; fileName: string }>>([]);
-  const [analyzing, setAnalyzing] = useState(false);
+  const [analysis, setAnalysis] = useState<Record<string, AnalysisState>>(() =>
+    Object.fromEntries(initialReceipts.filter((r) => r.analyzed).map((r) => [r.id, "done"]))
+  );
   const [error, setError] = useState<string | null>(null);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
-  const [showOnboardingModal, setShowOnboardingModal] = useState(false);
+  const [showInfoModal, setShowInfoModal] = useState(false);
+  const [continuing, setContinuing] = useState(false);
+  const [continueError, setContinueError] = useState<string | null>(null);
+  const [info, setInfo] = useState<SubmissionInfo>(() => ({
+    ...initialInfo,
+    workDate: initialInfo.workDate ?? new Date().toISOString().slice(0, 10),
+  }));
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const deletedIdsRef = useRef<Set<string>>(new Set());
+  const uploadsRef = useRef<Set<Promise<void>>>(new Set());
+  const analysesRef = useRef<Map<string, Promise<void>>>(new Map());
+  const activeAnalysesRef = useRef(0);
+  const waitingAnalysesRef = useRef<Array<() => void>>([]);
 
-  const ONBOARDING_SEEN_KEY = "expense-onboarding-seen";
+  /**
+   * Analyses one receipt in the background as soon as it is uploaded, so most of
+   * the work is done by the time the user has filled in the info dialog.
+   */
+  const startAnalysis = useCallback(
+    (id: string) => {
+      if (analysesRef.current.has(id)) return;
+      setAnalysis((prev) => ({ ...prev, [id]: "pending" }));
+      const run = async () => {
+        if (activeAnalysesRef.current >= BACKGROUND_ANALYSIS_CONCURRENCY) {
+          await new Promise<void>((resolve) => waitingAnalysesRef.current.push(resolve));
+        }
+        activeAnalysesRef.current++;
+        try {
+          if (deletedIdsRef.current.has(id)) return;
+          const res = await fetch(
+            `/api/submissions/${encodeURIComponent(token)}/receipts/${encodeURIComponent(id)}/analyze`,
+            { method: "POST" }
+          );
+          // 404: deleted meanwhile. Failures are retried by /analyze when the user continues.
+          if (!res.ok && res.status !== 404) throw new Error("Analyse feilet");
+        } finally {
+          activeAnalysesRef.current--;
+          waitingAnalysesRef.current.shift()?.();
+        }
+      };
+      const promise = run().then(
+        () => setAnalysis((prev) => ({ ...prev, [id]: "done" })),
+        () => setAnalysis((prev) => ({ ...prev, [id]: "error" }))
+      );
+      analysesRef.current.set(id, promise);
+    },
+    [token]
+  );
+
+  useEffect(() => {
+    // Resume receipts uploaded on an earlier visit that were never analysed.
+    initialReceipts.filter((r) => !r.analyzed).forEach((r) => startAnalysis(r.id));
+    // Runs once on mount; startAnalysis ignores receipts it has already started.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleFiles = useCallback(
-    async (files: FileList | null) => {
-      if (files == null || files.length === 0) return;
+    async (fileList: FileList | null) => {
+      if (fileList == null || fileList.length === 0) return;
       const allowed = ["image/", "application/pdf"];
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        if (!allowed.some((p) => file.type.toLowerCase().startsWith(p)))
-          continue;
-        const tempId = `upload-${Date.now()}-${i}`;
-        setUploadingFiles((prev) => [...prev, { id: tempId, fileName: file.name }]);
+      const files = Array.from(fileList).filter((file) =>
+        allowed.some((p) => file.type.toLowerCase().startsWith(p))
+      );
+      const batchId = Date.now();
+      setUploadingFiles((prev) => [
+        ...prev,
+        ...files.map((file, i) => ({ id: `upload-${batchId}-${i}`, fileName: file.name })),
+      ]);
+      // iPhone photos are 2–3 MB each; uploading a few at a time instead of one by one
+      // shortens the wait without saturating a mobile connection.
+      const batch = forEachConcurrent(files.map((file, i) => ({ file, i })), UPLOAD_CONCURRENCY, async ({ file, i }) => {
+        const tempId = `upload-${batchId}-${i}`;
         try {
           const clientPayload = JSON.stringify({
             token,
@@ -70,15 +142,24 @@ export function UploadStep({
           });
           const data = await res.json();
           if (!res.ok) throw new Error(data.error ?? "Kunne ikke lagre kvittering");
-          setReceipts(data.receipts);
+          // Parallel responses can arrive out of order, so merge instead of replacing.
+          setReceipts((prev) => mergeReceipts(prev, data.receipts, deletedIdsRef.current));
+          const created = (data.receipts as ReceiptItem[]).find((r) => r.blobUrl === blob.url);
+          if (created) startAnalysis(created.id);
         } catch (e) {
           setError((e as Error).message);
         } finally {
           setUploadingFiles((prev) => prev.filter((f) => f.id !== tempId));
         }
+      });
+      uploadsRef.current.add(batch);
+      try {
+        await batch;
+      } finally {
+        uploadsRef.current.delete(batch);
       }
     },
-    [token]
+    [token, startAnalysis]
   );
 
   const handleDrop = (e: React.DragEvent) => {
@@ -106,14 +187,42 @@ export function UploadStep({
     setIsDraggingOver(false);
   };
 
-  const handleAnalyze = async () => {
-    if (receipts.length === 0) {
+  const handleOpenInfo = () => {
+    if (receipts.length === 0 && uploadingFiles.length === 0) {
       setError("Last opp minst én kvittering først.");
       return;
     }
     setError(null);
-    setAnalyzing(true);
+    setContinueError(null);
+    setShowInfoModal(true);
+  };
+
+  /** Saves the info, waits for uploads and background analyses, then lets /analyze finish the rest. */
+  const handleContinue = async (values: SubmissionInfo) => {
+    setInfo(values);
+    setContinueError(null);
+    setContinuing(true);
     try {
+      const cash = values.productionCash.trim() === "" ? null : Math.round(Number(values.productionCash));
+      const saveRes = await fetch("/api/submission", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          token,
+          name: values.name.trim() || null,
+          projectNumber: values.projectNumber.trim() || null,
+          project: values.project.trim() || null,
+          workDate: values.workDate || null,
+          accountNumber: values.accountNumber.trim() || null,
+          productionCash: cash != null && Number.isFinite(cash) ? cash : null,
+        }),
+      });
+      if (!saveRes.ok) {
+        const data = await saveRes.json().catch(() => ({}));
+        throw new Error(data.error ?? "Kunne ikke lagre person- og prosjektinfo");
+      }
+      await Promise.allSettled([...uploadsRef.current]);
+      await Promise.allSettled([...analysesRef.current.values()]);
       const res = await fetch(`/api/submissions/${encodeURIComponent(token)}/analyze`, {
         method: "POST",
       });
@@ -121,31 +230,11 @@ export function UploadStep({
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error ?? "Analyse feilet");
       }
-      try {
-        const seen = sessionStorage.getItem(`${ONBOARDING_SEEN_KEY}-${token}`);
-        if (seen === "1") {
-          router.push(`/s/${token}/review`);
-        } else {
-          setShowOnboardingModal(true);
-        }
-      } catch {
-        setShowOnboardingModal(true);
-      }
+      router.push(`/s/${token}/review`);
     } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setAnalyzing(false);
+      setContinueError((e as Error).message);
+      setContinuing(false);
     }
-  };
-
-  const handleOnboardingContinue = () => {
-    try {
-      sessionStorage.setItem(`${ONBOARDING_SEEN_KEY}-${token}`, "1");
-    } catch {
-      // ignore
-    }
-    setShowOnboardingModal(false);
-    router.push(`/s/${token}/review`);
   };
 
   const handleDeleteReceipt = async (id: string) => {
@@ -155,10 +244,18 @@ export function UploadStep({
         { method: "DELETE" }
       );
       if (!res.ok) throw new Error("Kunne ikke slette");
+      deletedIdsRef.current.add(id);
       setReceipts((prev) => prev.filter((r) => r.id !== id));
     } catch (_e) {
       setError("Kunne ikke slette kvittering");
     }
+  };
+
+  const progress = {
+    total: receipts.length,
+    done: receipts.filter((r) => analysis[r.id] === "done").length,
+    failed: receipts.filter((r) => analysis[r.id] === "error").length,
+    uploading: uploadingFiles.length,
   };
 
   return (
@@ -210,6 +307,15 @@ export function UploadStep({
                 <p className="truncate text-sm text-white" title={r.originalFileName}>
                   {r.originalFileName}
                 </p>
+                {analysis[r.id] === "pending" && (
+                  <p className="text-xs text-neutral-500">Leser kvitteringen…</p>
+                )}
+                {analysis[r.id] === "done" && (
+                  <p className="text-xs text-neutral-500">Lest</p>
+                )}
+                {analysis[r.id] === "error" && (
+                  <p className="text-xs text-amber-300/90">Leses på nytt når du går videre</p>
+                )}
               </div>
               <a
                 href={r.blobUrl}
@@ -260,74 +366,29 @@ export function UploadStep({
         )}
       </section>
 
-      {analyzing && (
-        <div
-          className="rounded-xl border border-neutral-700 bg-neutral-800/80 p-6 text-center"
-          role="status"
-          aria-live="polite"
-          aria-label="Analyserer kvitteringer"
-        >
-          <p className="mb-3 text-sm font-medium text-neutral-200">
-            Analyserer kvitteringer…
-          </p>
-          <p className="mb-4 text-xs text-neutral-400">
-            Dette kan ta litt tid avhengig av antall filer.
-          </p>
-          <div className="h-2 w-full overflow-hidden rounded-full bg-neutral-700">
-            <div className="h-full min-w-[30%] rounded-full bg-green-600 animate-analyze-progress" />
-          </div>
-        </div>
-      )}
-
       <div className="flex flex-col items-center gap-3">
         <button
           type="button"
-          onClick={handleAnalyze}
-          disabled={analyzing || receipts.length === 0}
+          onClick={handleOpenInfo}
+          disabled={receipts.length === 0 && uploadingFiles.length === 0}
           className="rounded-lg bg-green-700 px-4 py-2 text-sm font-medium text-white hover:bg-green-600 disabled:opacity-50"
         >
-          {analyzing ? "Går videre…" : "Gå videre"}
+          Gå videre
         </button>
         {error && (
           <p className="text-sm text-red-400">{error}</p>
         )}
       </div>
 
-      {showOnboardingModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="onboarding-modal-title"
-        >
-          <div
-            className="w-full max-w-md rounded-xl border border-neutral-700 bg-neutral-900 p-6 shadow-xl space-y-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2
-              id="onboarding-modal-title"
-              className="text-lg font-semibold text-white"
-            >
-              Kvitteringene er klare for gjennomgang
-            </h2>
-            <p className="text-sm text-neutral-300 leading-relaxed">
-              Vi har lest kvitteringene dine og fylt ut utleggsskjemaet automatisk.
-              Gå gjennom hver linje og sjekk at beløp og beskrivelse stemmer før du sender inn.
-            </p>
-            <p className="text-xs text-neutral-500 leading-relaxed">
-              Noen kjøp kan kreve en kort kommentar, for eksempel mat/drikke.
-            </p>
-            <div className="pt-1">
-              <button
-                type="button"
-                onClick={handleOnboardingContinue}
-                className="w-full rounded-lg bg-green-600 px-4 py-3 text-sm font-medium text-white hover:bg-green-500 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-neutral-900"
-              >
-                Gå til gjennomgang
-              </button>
-            </div>
-          </div>
-        </div>
+      {showInfoModal && (
+        <SubmissionInfoModal
+          initialInfo={info}
+          progress={progress}
+          continuing={continuing}
+          error={continueError}
+          onContinue={handleContinue}
+          onClose={() => setShowInfoModal(false)}
+        />
       )}
     </div>
   );

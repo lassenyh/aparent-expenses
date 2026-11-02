@@ -1,26 +1,8 @@
 import { forEachConcurrent } from "@/lib/forEachConcurrent";
 import { NextResponse } from "next/server";
-import { get } from "@vercel/blob";
 import { prisma } from "@/lib/db";
-import { analyzeReceipt } from "@/lib/analyzeReceipt";
-import {
-  detectSmartComment,
-  parseCommentFlags,
-  stringifyCommentFlags,
-} from "@/lib/receipts/smartComment";
-
-async function streamToBuffer(
-  stream: ReadableStream<Uint8Array>
-): Promise<Buffer> {
-  const reader = stream.getReader();
-  const chunks: Uint8Array[] = [];
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    if (value) chunks.push(value);
-  }
-  return Buffer.concat(chunks);
-}
+import { ANALYSIS_CONCURRENCY } from "@/lib/submissionAnalysis";
+import { analyzeAndStoreReceipt, readReceiptBlob } from "@/lib/analyzeStoredReceipt";
 
 /**
  * POST /api/submissions/[token]/analyze-new
@@ -72,37 +54,15 @@ export async function POST(
       );
     }
 
-    await forEachConcurrent(toAnalyze, 2, async (receipt) => {
-      let bytes: Buffer;
+    await forEachConcurrent(toAnalyze, ANALYSIS_CONCURRENCY, async (receipt) => {
+      let bytes: Buffer | null;
       try {
-        const result = await get(receipt.blobUrl, { access: "private" });
-        if (!result || result.statusCode !== 200 || !result.stream) {
-          return;
-        }
-        bytes = await streamToBuffer(result.stream);
+        bytes = await readReceiptBlob(receipt.blobUrl);
       } catch {
         return;
       }
-
-      const analyzed = await analyzeReceipt(bytes, receipt.mimeType);
-      const { flags } = detectSmartComment({
-        description: analyzed.summary,
-        vendor: receipt.originalFileName,
-        extractedText: analyzed.extractedText,
-      });
-      const dismissed = parseCommentFlags(receipt.dismissedCommentFlags);
-      const activeFlags = flags.filter((f) => !dismissed.includes(f));
-
-      await prisma.receipt.update({
-        where: { id: receipt.id },
-        data: {
-          extractedSummary: analyzed.summary,
-          extractedTotalCents: analyzed.totalCents,
-          extractedCurrency: analyzed.currency ?? "NOK",
-          originalAmountCents: analyzed.originalAmountCents ?? undefined,
-          commentFlags: stringifyCommentFlags(activeFlags),
-        },
-      });
+      if (!bytes) return;
+      await analyzeAndStoreReceipt(receipt, bytes);
     });
 
     const updated = await prisma.submission.findUnique({

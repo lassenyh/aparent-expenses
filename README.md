@@ -32,9 +32,11 @@ Konfigurer servervariabler lokalt i `.env.local` eller i driftsmiljøet. Ikke le
 
 ## Gjeldende brukerflyt
 
-Appens opprinnelige grensesnitt og brukerflyt fra `4635111` er gjenopprettet. Last opp bilag, velg «Gå videre», kontroller og korriger felter i den opprinnelige gjennomgangstabellen, forhåndsvis og bekreft innsending. Bekreftelsessiden har den opprinnelige videobakgrunnen.
+Appens opprinnelige grensesnitt og brukerflyt fra `4635111` er gjenopprettet. Last opp bilag; hvert bilag analyseres i bakgrunnen så snart det er lastet opp. «Gå videre» åpner person- og prosjektinfo, og når den er fylt ut venter appen på analysene som gjenstår før gjennomgangen åpnes. Der vises infoen som et sammendrag med «Endre». Kontroller og korriger felter i den opprinnelige gjennomgangstabellen, forhåndsvis og bekreft innsending. Bekreftelsessiden har den opprinnelige videobakgrunnen.
 
-Ytelsesforbedringer beholdes uten ekstra steg: komprimerte bakgrunner, to samtidige analyser, gjenbrukt databasepool og lokal PDF-styling med samme opprinnelige utforming. Analyse bruker GPT-4o med strukturert uthenting. Valutaomregning følger de opprinnelige `EXCHANGE_RATE_*`-innstillingene og standardratene.
+Ytelsesforbedringer beholdes uten ekstra steg: komprimerte bakgrunner, fire samtidige analyser, HEIC dekodet direkte til sharp uten mellomliggende JPEG, gjenbrukt databasepool og lokal PDF-styling med samme opprinnelige utforming. Analyse bruker GPT-4o med strukturert uthenting av bare feltene appen lagrer (ikke varelinjer og MVA-detaljer). Et tomt eller avkortet svar prøves én gang til. Valutaomregning følger de opprinnelige `EXCHANGE_RATE_*`-innstillingene og standardratene.
+
+Sammenlign modeller og innstillinger med `npm run benchmark:fixtures` (syntetiske kvitteringer med fasit) og `npm run benchmark:receipts -- <manifest.json> --variants ...`. Bruk bare syntetiske eller godkjente kvitteringer; filene sendes til OpenAI.
 
 Se [gjenopprettingsrapporten](docs/ui-restoration-2026-09-19.md) for avgrensning og tester. Den tidligere implementasjonsrapporten er historisk; nye arbeidsflyter der er reversert. Bakgrunnsjobber, e-postwebhook og nye kontroll-/organiseringssider er ikke aktive i denne versjonen.
 
