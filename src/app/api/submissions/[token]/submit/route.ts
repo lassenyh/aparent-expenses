@@ -6,8 +6,7 @@ import { get, put } from "@vercel/blob";
 import { prisma } from "@/lib/db";
 import { SubmissionStatus } from "@prisma/client";
 import { Resend } from "resend";
-import { renderExpensePdfHtml } from "@/lib/pdf/renderExpensePdfHtml";
-import { htmlToPdf } from "@/lib/pdf/htmlToPdf";
+import { renderExpenseSummaryPdf } from "@/lib/pdf/renderExpenseSummaryPdf";
 import { appendPreparedReceiptPages, prepareReceiptFiles } from "@/lib/pdf/appendReceiptPages";
 import { readReceiptPreview } from "@/lib/receiptPreview";
 import { getAdminSubmitterEmail } from "@/lib/adminDefaults";
@@ -184,7 +183,7 @@ export async function POST(
     );
     const diffCents = totalCents - productionCashCents;
 
-    const pdfHtml = await renderExpensePdfHtml({
+    const summaryPdf = renderExpenseSummaryPdf({
       submission: {
         name: updated.name,
         projectNumber: updated.projectNumber,
@@ -227,9 +226,9 @@ export async function POST(
       }
       return streamToBuffer(result.stream);
     }
-    // The summary page (Chrome) and the receipt images are independent, so they are made at the same time.
+    // The summary pages and the receipt images are independent, so they are made at the same time.
     const [summaryPdfBytes, preparedFiles] = await Promise.all([
-      htmlToPdf(pdfHtml),
+      summaryPdf,
       prepareReceiptFiles(receiptsForAppend, getReceiptBytes, readReceiptPreview),
     ]);
     const pdfBytes = await appendPreparedReceiptPages(summaryPdfBytes, preparedFiles);
