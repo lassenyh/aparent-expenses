@@ -18,7 +18,7 @@
   - **Backend:** Next.js API-ruter (serverless), Prisma, PostgreSQL
   - **Filer:** Vercel Blob (opplasting og lagring av kvitteringsfiler)
   - **AI:** OpenAI GPT-4o (Vision for bilder, Responses API/Files API for PDF) – valgfritt; ved manglende API-nøkkel brukes stub-data
-  - **PDF:** Puppeteer + @sparticuz/chromium-min (HTML→PDF), pdf-lib (sammenstilling), Inter som font i PDF
+  - **PDF:** pdf-lib for både skjemasiden og sammenstillingen (Helvetica/Courier); ingen Chrome. Forhåndsvisningen i nettleseren bruker fortsatt ExpensePdfLayout.
   - **E-post:** Resend (ved innsending)
   - **Deploy:** Vercel (typisk)
 
@@ -120,7 +120,7 @@
 
   ## 6. PDF-flyt
 
-  1. **Oppsummering:** React-komponent (ExpensePdfLayout) rendres til HTML med Inter font, deretter HTML→PDF via Puppeteer (Chromium).
+  1. **Oppsummering:** Tegnes direkte med pdf-lib (`renderExpenseSummaryPdf`) etter samme oppsett som ExpensePdfLayout, som forhåndsvisningen i nettleseren bruker.
   2. **Kvitteringssider:** Hver kvittering hentes som blob; bilder/PDF konverteres til PDF-sider (ev. ved bruk av pdf-lib / bilde-embedding).
   3. **Kombinert PDF:** Oppsummerings-PDF + alle kvitteringssider slås sammen til én fil, lastes opp til Blob, og URL lagres i `Submission.combinedPdfUrl`. Ved export-pdf returneres samme fil som nedlasting uten å lagre eller sende e-post.
 

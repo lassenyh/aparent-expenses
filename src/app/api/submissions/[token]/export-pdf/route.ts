@@ -4,8 +4,7 @@ export const maxDuration = 60;
 import { NextResponse } from "next/server";
 import { get } from "@vercel/blob";
 import { prisma } from "@/lib/db";
-import { renderExpensePdfHtml } from "@/lib/pdf/renderExpensePdfHtml";
-import { htmlToPdf } from "@/lib/pdf/htmlToPdf";
+import { renderExpenseSummaryPdf } from "@/lib/pdf/renderExpenseSummaryPdf";
 import { appendReceiptPages } from "@/lib/pdf/appendReceiptPages";
 import { readReceiptPreview } from "@/lib/receiptPreview";
 
@@ -121,7 +120,7 @@ export async function POST(
         ? new Date(body.workDate)
         : submission.workDate;
 
-    const pdfHtml = await renderExpensePdfHtml({
+    const summaryPdf = renderExpenseSummaryPdf({
       submission: {
         name: body.name ?? submission.name,
         projectNumber: body.projectNumber ?? submission.projectNumber,
@@ -144,7 +143,7 @@ export async function POST(
         diffCents,
       },
     });
-    const summaryPdfBytes = await htmlToPdf(pdfHtml);
+    const summaryPdfBytes = await summaryPdf;
 
     const receiptsForAppend = mergedReceipts.map((r) => ({
       blobUrl: r.blobUrl,

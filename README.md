@@ -27,7 +27,6 @@ Konfigurer servervariabler lokalt i `.env.local` eller i driftsmiljøet. Ikke le
 | `ADMIN_EMAIL` | Regnskapsmottaker for vanlige utlegg, bindes ved opprettelse |
 | `RESEND_API_KEY`, `RESEND_FROM` | E-post; bruk verifisert avsender i drift |
 | `ADMIN_SUBMITTER_NAME`, `ADMIN_SUBMITTER_ACCOUNT`, `ADMIN_SUBMITTER_EMAIL` | Admin-forhåndsutfylling og mottaker. Opplysningene bindes til hvert oppgjør. |
-| `PUPPETEER_EXECUTABLE_PATH` | Valgfri lokal Chrome til PDF |
 | `NEXT_DIST_DIR` | Valgfri separat Next-buildmappe for parallell testing |
 
 ## Gjeldende brukerflyt
