@@ -33,7 +33,17 @@ export default async function ReviewPage(props: PageProps) {
 
   const submission = await prisma.submission.findUnique({
     where: { accessToken: token },
-    include: { receipts: { orderBy: { createdAt: "asc" } } },
+    include: {
+      receipts: {
+        orderBy: { createdAt: "asc" },
+        include: {
+          parts: {
+            orderBy: { position: "asc" },
+            select: { id: true, mimeType: true, originalFileName: true },
+          },
+        },
+      },
+    },
   });
 
   if (!submission) return notFound();
@@ -168,6 +178,7 @@ export default async function ReviewPage(props: PageProps) {
       commentFlags: r.commentFlags ?? null,
       dismissedCommentFlags: r.dismissedCommentFlags ?? null,
       merchant: r.merchant ?? null,
+      parts: r.parts,
     })),
   };
 

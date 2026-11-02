@@ -6,6 +6,7 @@ import { upload } from "@vercel/blob/client";
 import { forEachConcurrent } from "@/lib/forEachConcurrent";
 import { mergeReceipts } from "@/lib/mergeReceipts";
 import { SubmissionInfoModal, type SubmissionInfo } from "./SubmissionInfoModal";
+import { UPLOAD_INTRO_SEEN_KEY, UploadIntro } from "./UploadIntro";
 
 type ReceiptItem = {
   id: string;
@@ -15,6 +16,8 @@ type ReceiptItem = {
   blobUrl: string;
   /** Set by the page for receipts that were already analysed before this visit. */
   analyzed?: boolean;
+  /** Extra images of the same receipt, after its own file. */
+  parts?: Array<{ id: string; mimeType: string; originalFileName: string }>;
 };
 
 type AnalysisState = "pending" | "done" | "error";
@@ -57,14 +60,48 @@ export function UploadStep({
   const analysesRef = useRef<Map<string, Promise<void>>>(new Map());
   const activeAnalysesRef = useRef(0);
   const waitingAnalysesRef = useRef<Array<() => void>>([]);
+  /** Bumped when a receipt is analysed again, so an older run cannot overwrite the newer state. */
+  const analysisGenRef = useRef<Map<string, number>>(new Map());
+  const partInputRef = useRef<HTMLInputElement>(null);
+  const partTargetRef = useRef<string | null>(null);
+  /** Receipts ticked for merging, in the order the user ticked them. */
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [busyIds, setBusyIds] = useState<Map<string, string>>(new Map());
+  const [showIntro, setShowIntro] = useState(false);
+
+  useEffect(() => {
+    // Shown once per device, before the first upload; «Slik fungerer det» opens it again.
+    let unseen = false;
+    try {
+      unseen = initialReceipts.length === 0 && !localStorage.getItem(UPLOAD_INTRO_SEEN_KEY);
+    } catch {
+      // Storage blocked: skip the intro rather than show it on every visit.
+    }
+    if (!unseen) return;
+    const timer = setTimeout(() => setShowIntro(true), 0);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const closeIntro = useCallback(() => {
+    setShowIntro(false);
+    try {
+      localStorage.setItem(UPLOAD_INTRO_SEEN_KEY, "1");
+    } catch {
+      // ignore
+    }
+  }, []);
 
   /**
    * Analyses one receipt in the background as soon as it is uploaded, so most of
    * the work is done by the time the user has filled in the info dialog.
    */
   const startAnalysis = useCallback(
-    (id: string) => {
-      if (analysesRef.current.has(id)) return;
+    (id: string, again = false) => {
+      if (analysesRef.current.has(id) && !again) return;
+      const gen = (analysisGenRef.current.get(id) ?? 0) + 1;
+      analysisGenRef.current.set(id, gen);
+      const current = () => analysisGenRef.current.get(id) === gen;
       setAnalysis((prev) => ({ ...prev, [id]: "pending" }));
       const run = async () => {
         if (activeAnalysesRef.current >= BACKGROUND_ANALYSIS_CONCURRENCY) {
@@ -85,9 +122,9 @@ export function UploadStep({
         }
       };
       const promise = run().then(
-        () => setAnalysis((prev) => ({ ...prev, [id]: "done" })),
-        () => setAnalysis((prev) => ({ ...prev, [id]: "error" }))
-      );
+        () => current() && setAnalysis((prev) => ({ ...prev, [id]: "done" })),
+        () => current() && setAnalysis((prev) => ({ ...prev, [id]: "error" }))
+      ).then(() => undefined);
       analysesRef.current.set(id, promise);
     },
     [token]
@@ -187,6 +224,126 @@ export function UploadStep({
     setIsDraggingOver(false);
   };
 
+  const setBusy = (id: string, label: string | null) =>
+    setBusyIds((prev) => {
+      const next = new Map(prev);
+      if (label) next.set(id, label);
+      else next.delete(id);
+      return next;
+    });
+
+  /** Runs a change to the receipt list (add image, merge, split) and tracks it like an upload. */
+  const trackChange = (work: Promise<void>) => {
+    uploadsRef.current.add(work);
+    work.finally(() => uploadsRef.current.delete(work));
+    return work;
+  };
+
+  /** Adds the chosen files, in order, as further images of the receipt the user picked. */
+  const handleAddParts = (fileList: FileList | null) => {
+    const receiptId = partTargetRef.current;
+    partTargetRef.current = null;
+    if (!receiptId || !fileList?.length) return;
+    const files = Array.from(fileList).filter((f) => /^(image\/|application\/pdf)/i.test(f.type));
+    if (files.length === 0) return;
+    setError(null);
+    setBusy(receiptId, "Laster opp bilde…");
+    return trackChange(
+      (async () => {
+        try {
+          for (const file of files) {
+            const blob = await upload(file.name, file, {
+              access: "private",
+              handleUploadUrl: "/api/blob",
+              clientPayload: JSON.stringify({ token, originalFileName: file.name, mimeType: file.type, sizeBytes: file.size }),
+            });
+            const res = await fetch(
+              `/api/submissions/${encodeURIComponent(token)}/receipts/${encodeURIComponent(receiptId)}/parts`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  originalFileName: file.name,
+                  mimeType: file.type,
+                  sizeBytes: file.size,
+                  blobUrl: blob.url,
+                  blobPath: (blob as { pathname?: string }).pathname ?? blob.url,
+                }),
+              }
+            );
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error ?? "Kunne ikke legge til bildet");
+            setReceipts((prev) => mergeReceipts(prev, data.receipts, deletedIdsRef.current));
+          }
+          startAnalysis(receiptId, true);
+        } catch (e) {
+          setError((e as Error).message);
+        } finally {
+          setBusy(receiptId, null);
+        }
+      })()
+    );
+  };
+
+  /** Merges the selected receipts into the first one ticked, in the order they were ticked. */
+  const handleMergeSelected = () => {
+    const ordered = selectedIds.filter((id) => receipts.some((r) => r.id === id));
+    if (ordered.length < 2) return;
+    const [targetId, ...sourceIds] = ordered;
+    setError(null);
+    setBusy(targetId, "Slår sammen…");
+    return trackChange(
+      (async () => {
+        try {
+          const res = await fetch(`/api/submissions/${encodeURIComponent(token)}/receipts/merge`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ targetId, sourceIds }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(data.error ?? "Kunne ikke slå sammen kvitteringene");
+          sourceIds.forEach((id) => deletedIdsRef.current.add(id));
+          setReceipts((prev) => mergeReceipts(prev, data.receipts, deletedIdsRef.current));
+          setSelectedIds([]);
+          startAnalysis(targetId, true);
+        } catch (e) {
+          setError((e as Error).message);
+        } finally {
+          setBusy(targetId, null);
+        }
+      })()
+    );
+  };
+
+  /** Turns the extra images of a receipt back into receipts of their own. */
+  const handleSplit = (id: string) => {
+    setError(null);
+    setBusy(id, "Deler opp…");
+    return trackChange(
+      (async () => {
+        try {
+          const res = await fetch(
+            `/api/submissions/${encodeURIComponent(token)}/receipts/${encodeURIComponent(id)}/split`,
+            { method: "POST" }
+          );
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(data.error ?? "Kunne ikke dele opp kvitteringen");
+          const list = data.receipts as ReceiptItem[];
+          setReceipts((prev) => mergeReceipts(prev, list, deletedIdsRef.current));
+          startAnalysis(id, true);
+          list.filter((r) => !r.analyzed && r.id !== id).forEach((r) => startAnalysis(r.id));
+        } catch (e) {
+          setError((e as Error).message);
+        } finally {
+          setBusy(id, null);
+        }
+      })()
+    );
+  };
+
+  const toggleSelected = (id: string) =>
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+
   const handleOpenInfo = () => {
     if (receipts.length === 0 && uploadingFiles.length === 0) {
       setError("Last opp minst én kvittering først.");
@@ -246,6 +403,7 @@ export function UploadStep({
       if (!res.ok) throw new Error("Kunne ikke slette");
       deletedIdsRef.current.add(id);
       setReceipts((prev) => prev.filter((r) => r.id !== id));
+      setSelectedIds((prev) => prev.filter((x) => x !== id));
     } catch (_e) {
       setError("Kunne ikke slette kvittering");
     }
@@ -263,6 +421,15 @@ export function UploadStep({
 
   return (
     <div className="w-full min-w-0 space-y-3">
+      <div className="-mt-2 flex justify-end">
+        <button
+          type="button"
+          onClick={() => setShowIntro(true)}
+          className="text-[13px] text-muted underline decoration-control underline-offset-[3px] hover:text-ink hover:decoration-current"
+        >
+          Slik fungerer det
+        </button>
+      </div>
       <section className="rounded-lg border border-line bg-surface" aria-label="Kvitteringer">
         <div className="px-5 pt-5">
           <div
@@ -292,6 +459,17 @@ export function UploadStep({
                 e.target.value = "";
               }}
             />
+            <input
+              ref={partInputRef}
+              type="file"
+              accept="image/*,image/heic,application/pdf"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                handleAddParts(e.target.files);
+                e.target.value = "";
+              }}
+            />
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
@@ -300,6 +478,9 @@ export function UploadStep({
               Velg filer
             </button>
             <p className="text-[12.5px]">Bilder og PDF</p>
+            <p className="max-w-sm text-[12.5px]">
+              Lang kvittering? Ta flere bilder, kryss dem av og velg «Slå sammen til én kvittering».
+            </p>
           </div>
 
           {receipts.length === 0 && uploadingFiles.length === 0 ? (
@@ -307,51 +488,131 @@ export function UploadStep({
               Ingen kvitteringer lagt til ennå.
             </p>
           ) : (
-            <ul className="mt-3">
-              {receipts.map((r) => (
-                <li
-                  key={r.id}
-                  className="grid grid-cols-[36px_minmax(0,1fr)_auto] items-center gap-3 border-t border-rule py-2.5"
-                >
-                  <span
-                    className="grid h-9 w-9 place-items-center rounded-md bg-raised text-[11px] font-semibold tracking-wide text-muted"
-                    aria-hidden
+            <>
+            {selectedIds.length > 0 && (
+              <div
+                className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-md bg-raised px-3 py-2 text-[13px]"
+                role="status"
+              >
+                <span className="text-ink">
+                  {selectedIds.length < 2
+                    ? "Velg én til for å slå sammen bildene til én kvittering"
+                    : `${selectedIds.length} valgt. Bildene blir én kvittering, i den rekkefølgen du valgte dem.`}
+                </span>
+                <span className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedIds([])}
+                    className="h-8 rounded-md px-3 text-muted hover:text-ink"
                   >
-                    {fileType(r)}
-                  </span>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-ink" title={r.originalFileName}>
-                      {r.originalFileName}
-                    </p>
-                    {analysis[r.id] === "pending" && (
-                      <p className="text-[12.5px] text-muted">Leser kvitteringen…</p>
-                    )}
-                    {analysis[r.id] === "done" && (
-                      <p className="text-[12.5px] text-muted">Lest</p>
-                    )}
-                    {analysis[r.id] === "error" && (
-                      <p className="text-[12.5px] text-warn-ink">Leses på nytt når du går videre</p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <a
-                      href={`/api/submissions/${encodeURIComponent(token)}/receipts/${encodeURIComponent(r.id)}/blob`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex h-[30px] items-center rounded-md px-2.5 text-[13px] text-muted hover:bg-raised hover:text-ink"
+                    Avbryt
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleMergeSelected}
+                    disabled={selectedIds.length < 2}
+                    className="h-8 rounded-md bg-primary px-3 font-medium text-primary-fg hover:bg-primary-hover disabled:opacity-45"
+                  >
+                    Slå sammen til én kvittering
+                  </button>
+                </span>
+              </div>
+            )}
+            <ul className="mt-3">
+              {receipts.map((r) => {
+                const partCount = r.parts?.length ?? 0;
+                const busy = busyIds.get(r.id);
+                return (
+                  <li
+                    key={r.id}
+                    className="grid grid-cols-[20px_36px_minmax(0,1fr)] items-center gap-x-3 gap-y-1.5 border-t border-rule py-2.5 sm:grid-cols-[20px_36px_minmax(0,1fr)_auto]"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.includes(r.id)}
+                      onChange={() => toggleSelected(r.id)}
+                      disabled={!!busy}
+                      aria-label={`Velg ${r.originalFileName} for å slå sammen`}
+                      className="h-4 w-4 accent-primary"
+                    />
+                    <span
+                      className="grid h-9 w-9 place-items-center rounded-md bg-raised text-[11px] font-semibold tracking-wide text-muted"
+                      aria-hidden
                     >
-                      Åpne
-                    </a>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteReceipt(r.id)}
-                      className="inline-flex h-[30px] items-center rounded-md px-2.5 text-[13px] text-muted hover:bg-neg-soft hover:text-neg"
-                    >
-                      Slett
-                    </button>
-                  </div>
-                </li>
-              ))}
+                      {fileType(r)}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-ink" title={r.originalFileName}>
+                        {selectedIds.length > 1 && selectedIds.includes(r.id) && (
+                          <span className="mr-1.5 rounded bg-primary px-1.5 py-px text-[11px] font-semibold text-primary-fg">
+                            {selectedIds.indexOf(r.id) + 1}
+                          </span>
+                        )}
+                        {r.originalFileName}
+                        {partCount > 0 && (
+                          <span className="font-normal text-muted">
+                            {" "}+ {partCount} {partCount === 1 ? "bilde" : "bilder"}
+                          </span>
+                        )}
+                      </p>
+                      {busy ? (
+                        <p className="text-[12.5px] text-muted">{busy}</p>
+                      ) : (
+                        <>
+                          {analysis[r.id] === "pending" && (
+                            <p className="text-[12.5px] text-muted">Leser kvitteringen…</p>
+                          )}
+                          {analysis[r.id] === "done" && (
+                            <p className="text-[12.5px] text-muted">Lest</p>
+                          )}
+                          {analysis[r.id] === "error" && (
+                            <p className="text-[12.5px] text-warn-ink">Leses på nytt når du går videre</p>
+                          )}
+                        </>
+                      )}
+                    </div>
+                    <div className="col-start-3 flex flex-wrap items-center gap-1 sm:col-start-auto sm:justify-end">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          partTargetRef.current = r.id;
+                          partInputRef.current?.click();
+                        }}
+                        disabled={!!busy}
+                        className="inline-flex h-[30px] items-center rounded-md px-2.5 text-[13px] text-muted hover:bg-raised hover:text-ink disabled:opacity-50"
+                      >
+                        Legg til bilde
+                      </button>
+                      {partCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => handleSplit(r.id)}
+                          disabled={!!busy}
+                          className="inline-flex h-[30px] items-center rounded-md px-2.5 text-[13px] text-muted hover:bg-raised hover:text-ink disabled:opacity-50"
+                        >
+                          Del opp
+                        </button>
+                      )}
+                      <a
+                        href={`/api/submissions/${encodeURIComponent(token)}/receipts/${encodeURIComponent(r.id)}/blob`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex h-[30px] items-center rounded-md px-2.5 text-[13px] text-muted hover:bg-raised hover:text-ink"
+                      >
+                        Åpne
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteReceipt(r.id)}
+                        disabled={!!busy}
+                        className="inline-flex h-[30px] items-center rounded-md px-2.5 text-[13px] text-muted hover:bg-neg-soft hover:text-neg disabled:opacity-50"
+                      >
+                        Slett
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
               {uploadingFiles.map(({ id, fileName }) => (
                 <li
                   key={id}
@@ -374,6 +635,7 @@ export function UploadStep({
                 </li>
               ))}
             </ul>
+            </>
           )}
         </div>
 
@@ -395,6 +657,8 @@ export function UploadStep({
       </section>
 
       {error && <p className="text-sm text-neg">{error}</p>}
+
+      {showIntro && <UploadIntro onClose={closeIntro} />}
 
       {showInfoModal && (
         <SubmissionInfoModal

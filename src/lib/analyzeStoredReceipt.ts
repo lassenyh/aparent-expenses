@@ -1,6 +1,6 @@
 import { get } from "@vercel/blob";
 import { prisma } from "@/lib/db";
-import { analyzeReceipt } from "@/lib/analyzeReceipt";
+import { analyzeReceiptFiles } from "@/lib/analyzeReceipt";
 import {
   detectReceiptImageFormat,
   normalizeReceiptImage,
@@ -38,19 +38,64 @@ export async function readReceiptBlob(blobUrl: string): Promise<Buffer | null> {
   return streamToBuffer(result.stream);
 }
 
-/** Analyses one stored receipt and saves the extracted fields and comment flags. */
-export async function analyzeAndStoreReceipt(receipt: StoredReceipt, bytes: Buffer): Promise<void> {
-  // HEIC is decoded once here; the JPEG feeds the analysis and is kept for the receipt preview.
-  let analysisBytes = bytes;
-  let analysisMimeType = receipt.mimeType;
-  if (detectReceiptImageFormat(bytes, receipt.mimeType) === "heic") {
-    analysisBytes = await normalizeReceiptImage(bytes, receipt.mimeType);
-    analysisMimeType = "image/jpeg";
-    await storeReceiptPreview(receipt.id, analysisBytes).catch((error) =>
-      console.warn("[analyzeStoredReceipt] Kunne ikke lagre forhåndsvisning", error)
-    );
+/** A file of a stored receipt: the receipt's own file, or one of its extra parts. */
+export type StoredReceiptFile = {
+  /** Key for the stored JPEG preview: the receipt id for its own file, `part-<id>` for parts. */
+  previewKey: string;
+  bytes: Buffer;
+  mimeType: string;
+};
+
+/**
+ * Reads every file of a receipt in order: its own file, then its parts.
+ * Returns null when the receipt's own file cannot be read; a missing part is an error.
+ */
+export async function loadReceiptFiles(receipt: StoredReceipt): Promise<StoredReceiptFile[] | null> {
+  const main = await readReceiptBlob(receipt.blobUrl);
+  if (!main) return null;
+  const parts = await prisma.receiptPart.findMany({
+    where: { receiptId: receipt.id },
+    orderBy: { position: "asc" },
+  });
+  const files: StoredReceiptFile[] = [{ previewKey: receipt.id, bytes: main, mimeType: receipt.mimeType }];
+  for (const part of parts) {
+    const bytes = await readReceiptBlob(part.blobUrl);
+    if (!bytes) throw new Error(`Kunne ikke hente ${part.originalFileName}`);
+    files.push({ previewKey: `part-${part.id}`, bytes, mimeType: part.mimeType });
   }
-  const analyzed = await analyzeReceipt(analysisBytes, analysisMimeType);
+  return files;
+}
+
+/**
+ * Analyses one stored receipt and saves the extracted fields and comment flags.
+ * A result is discarded when the receipt changed meanwhile (parts added or merged),
+ * because the changes reset analysisStartedAt and a new analysis is started.
+ */
+export async function analyzeAndStoreReceipt(
+  receipt: StoredReceipt,
+  files: StoredReceiptFile[]
+): Promise<{ stored: boolean }> {
+  const startedAt = new Date();
+  const claimed = await prisma.receipt.updateMany({
+    where: { id: receipt.id },
+    data: { analysisStartedAt: startedAt },
+  });
+  if (claimed.count === 0) return { stored: false };
+
+  // HEIC is decoded once here; the JPEG feeds the analysis and is kept for the receipt preview.
+  const analysisFiles = [];
+  for (const file of files) {
+    if (detectReceiptImageFormat(file.bytes, file.mimeType) === "heic") {
+      const jpeg = await normalizeReceiptImage(file.bytes, file.mimeType);
+      await storeReceiptPreview(file.previewKey, jpeg).catch((error) =>
+        console.warn("[analyzeStoredReceipt] Kunne ikke lagre forhåndsvisning", error)
+      );
+      analysisFiles.push({ bytes: jpeg, mimeType: "image/jpeg" });
+    } else {
+      analysisFiles.push({ bytes: file.bytes, mimeType: file.mimeType });
+    }
+  }
+  const analyzed = await analyzeReceiptFiles(analysisFiles);
   const { flags } = detectSmartComment({
     description: analyzed.summary,
     vendor: receipt.originalFileName,
@@ -59,15 +104,16 @@ export async function analyzeAndStoreReceipt(receipt: StoredReceipt, bytes: Buff
   const dismissed = parseCommentFlags(receipt.dismissedCommentFlags);
   const activeFlags = flags.filter((f) => !dismissed.includes(f));
 
-  await prisma.receipt.update({
-    where: { id: receipt.id },
+  const saved = await prisma.receipt.updateMany({
+    where: { id: receipt.id, analysisStartedAt: startedAt },
     data: {
       extractedSummary: analyzed.summary,
       extractedTotalCents: analyzed.totalCents,
       extractedCurrency: analyzed.currency ?? "NOK",
-      originalAmountCents: analyzed.originalAmountCents ?? undefined,
+      originalAmountCents: analyzed.originalAmountCents ?? null,
       commentFlags: stringifyCommentFlags(activeFlags),
       merchant: analyzed.merchant?.trim() || null,
     },
   });
+  return { stored: saved.count > 0 };
 }

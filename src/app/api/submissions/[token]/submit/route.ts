@@ -162,7 +162,12 @@ export async function POST(
 
     const updated = await prisma.submission.findUnique({
       where: { id: submission.id },
-      include: { receipts: { orderBy: { createdAt: "asc" } } },
+      include: {
+        receipts: {
+          orderBy: { createdAt: "asc" },
+          include: { parts: { orderBy: { position: "asc" } } },
+        },
+      },
     });
 
     if (!updated || updated.receipts.length === 0) {
@@ -207,6 +212,11 @@ export async function POST(
     const receiptsForAppend = updated.receipts.map((r) => ({
       blobUrl: r.blobUrl,
       mimeType: r.mimeType,
+      parts: r.parts.map((part) => ({
+        blobUrl: part.blobUrl,
+        mimeType: part.mimeType,
+        originalFileName: part.originalFileName,
+      })),
       summary: r.extractedSummary ?? "Kvittering",
       originalFileName: r.originalFileName,
     }));

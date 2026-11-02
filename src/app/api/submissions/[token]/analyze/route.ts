@@ -1,7 +1,7 @@
 import { forEachConcurrent } from "@/lib/forEachConcurrent";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { analyzeAndStoreReceipt, readReceiptBlob } from "@/lib/analyzeStoredReceipt";
+import { analyzeAndStoreReceipt, loadReceiptFiles } from "@/lib/analyzeStoredReceipt";
 import {
   ANALYSIS_CONCURRENCY,
   canAnalyzeSubmission,
@@ -48,17 +48,17 @@ export async function POST(
     const receiptsToAnalyze = submission.receipts.filter(receiptNeedsAnalysis);
 
     await forEachConcurrent(receiptsToAnalyze, ANALYSIS_CONCURRENCY, async (receipt) => {
-      let bytes: Buffer | null;
+      let files: Awaited<ReturnType<typeof loadReceiptFiles>>;
       try {
-        bytes = await readReceiptBlob(receipt.blobUrl);
-        if (!bytes) throw new Error(`Kunne ikke hente ${receipt.originalFileName}`);
+        files = await loadReceiptFiles(receipt);
+        if (!files) throw new Error(`Kunne ikke hente ${receipt.originalFileName}`);
       } catch (error) {
         const reason = error instanceof Error ? error.message : String(error);
         throw new Error(
           `Kunne ikke analysere ${receipt.originalFileName}: ${reason}`
         );
       }
-      await analyzeAndStoreReceipt(receipt, bytes);
+      await analyzeAndStoreReceipt(receipt, files);
     });
 
     await prisma.submission.update({

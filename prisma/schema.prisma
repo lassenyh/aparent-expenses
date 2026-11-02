@@ -66,12 +66,30 @@ model Receipt {
   contentHash           String?
   sourcePages           Int[]             @default([])
   generations           ReceiptAnalysis[]
+  /// Extra images of the same receipt (a long receipt photographed in several parts). The receipt's own file is part 1.
+  parts                 ReceiptPart[]
   comment               String?
   commentFlags          String? // JSON array e.g. ["MEAL","TRANSPORT"]
   dismissedCommentFlags String? // JSON array e.g. ["TRANSPORT"]
 
   @@index([submissionId, createdAt])
   @@index([analysisStatus, analysisStartedAt])
+}
+
+/// An extra image of a receipt, after the receipt's own file. position starts at 1.
+model ReceiptPart {
+  id               String   @id @default(cuid())
+  receiptId        String
+  receipt          Receipt  @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  position         Int
+  originalFileName String
+  mimeType         String
+  sizeBytes        Int
+  blobUrl          String
+  blobPath         String
+  createdAt        DateTime @default(now())
+
+  @@index([receiptId, position])
 }
 
 model ReceiptAnalysis {

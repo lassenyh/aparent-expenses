@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { analyzeAndStoreReceipt, readReceiptBlob } from "@/lib/analyzeStoredReceipt";
+import { analyzeAndStoreReceipt, loadReceiptFiles } from "@/lib/analyzeStoredReceipt";
+import { receiptRowForClient } from "@/lib/receiptRows";
 import {
   canAnalyzeSubmission,
   receiptNeedsAnalysis,
@@ -35,19 +36,19 @@ export async function POST(
         { status: 400 }
       );
     }
-    if (!receiptNeedsAnalysis(receipt)) {
-      return NextResponse.json({ id: receipt.id, analyzed: true });
+    if (receiptNeedsAnalysis(receipt)) {
+      const files = await loadReceiptFiles(receipt);
+      if (!files) {
+        return NextResponse.json(
+          { error: `Kunne ikke hente ${receipt.originalFileName}` },
+          { status: 502 }
+        );
+      }
+      await analyzeAndStoreReceipt(receipt, files);
     }
-
-    const bytes = await readReceiptBlob(receipt.blobUrl);
-    if (!bytes) {
-      return NextResponse.json(
-        { error: `Kunne ikke hente ${receipt.originalFileName}` },
-        { status: 502 }
-      );
-    }
-    await analyzeAndStoreReceipt(receipt, bytes);
-    return NextResponse.json({ id: receipt.id, analyzed: true });
+    const row = await receiptRowForClient(receipt.id);
+    if (!row) return NextResponse.json({ error: "Receipt not found" }, { status: 404 });
+    return NextResponse.json({ id: receipt.id, analyzed: row.extractedSummary != null, receipt: row });
   } catch (error) {
     // The receipt may have been deleted while it was being analysed.
     const stillExists = await prisma.receipt
