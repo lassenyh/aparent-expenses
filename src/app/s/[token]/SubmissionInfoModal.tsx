@@ -29,6 +29,27 @@ function accountProblem(value: string): string | null {
   return digits.length === 11 ? null : "Kontonummer må være 11 sifre";
 }
 
+type FieldErrors = { name?: string; project?: string; accountNumber?: string };
+
+/** The same fields the review page requires before it submits. */
+function requiredProblems(info: SubmissionInfo): FieldErrors {
+  const errors: FieldErrors = {};
+  if (!info.name.trim()) errors.name = "Navn er påkrevd";
+  if (!info.project.trim()) errors.project = "Prosjektnavn er påkrevd";
+  const account = info.accountNumber.trim() === "" ? "Kontonummer er påkrevd" : accountProblem(info.accountNumber);
+  if (account) errors.accountNumber = account;
+  return errors;
+}
+
+function FieldError({ id, message }: { id: string; message?: string }) {
+  if (!message) return null;
+  return (
+    <p id={id} className="mt-1 text-[13px] text-neg">
+      {message}
+    </p>
+  );
+}
+
 /**
  * Person- og prosjektinfo vises når brukeren trykker «Gå videre». Kvitteringene
  * analyseres i bakgrunnen mens skjemaet fylles ut, så ventetiden brukes til
@@ -50,8 +71,9 @@ export function SubmissionInfoModal({
   onClose: () => void;
 }) {
   const [info, setInfo] = useState<SubmissionInfo>(initialInfo);
-  const [accountError, setAccountError] = useState<string | null>(null);
+  const [errors, setErrors] = useState<FieldErrors>({});
   const nameRef = useRef<HTMLInputElement>(null);
+  const projectRef = useRef<HTMLInputElement>(null);
   const accountRef = useRef<HTMLInputElement>(null);
   const workDateRef = useRef<HTMLInputElement>(null);
 
@@ -69,19 +91,26 @@ export function SubmissionInfoModal({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [continuing, onClose]);
 
-  const set = (field: keyof SubmissionInfo) => (e: React.ChangeEvent<HTMLInputElement>) =>
+  const set = (field: keyof SubmissionInfo) => (e: React.ChangeEvent<HTMLInputElement>) => {
     setInfo((prev) => ({ ...prev, [field]: e.target.value }));
+    setErrors((prev) => (field in prev ? { ...prev, [field]: undefined } : prev));
+  };
 
+  // The fields lock while the receipts finish, so nothing missing may get past this point.
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const problem = accountProblem(info.accountNumber);
-    setAccountError(problem);
-    if (problem) {
-      accountRef.current?.focus();
-      return;
-    }
-    onContinue(info);
+    const problems = requiredProblems(info);
+    setErrors(problems);
+    if (problems.name) nameRef.current?.focus();
+    else if (problems.project) projectRef.current?.focus();
+    else if (problems.accountNumber) accountRef.current?.focus();
+    else onContinue(info);
   };
+
+  const errorProps = (field: keyof FieldErrors) => ({
+    "aria-invalid": errors[field] ? true : undefined,
+    "aria-describedby": errors[field] ? `info-${field}-error` : undefined,
+  });
 
   const finished = progress.done + progress.failed;
   const remaining = progress.total - finished + progress.uploading;
@@ -143,9 +172,11 @@ export function SubmissionInfoModal({
               value={info.name}
               onChange={set("name")}
               disabled={continuing}
-              className={`${inputClass} ${okBorder}`}
+              {...errorProps("name")}
+              className={`${inputClass} ${errors.name ? errBorder : okBorder}`}
               placeholder="Fullt navn"
             />
+            <FieldError id="info-name-error" message={errors.name} />
           </div>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-[auto_1fr]">
             <div className="min-w-0">
@@ -186,15 +217,18 @@ export function SubmissionInfoModal({
                 Prosjektnavn <span className="text-muted">*</span>
               </label>
               <input
+                ref={projectRef}
                 id="info-project"
                 type="text"
                 autoComplete="off"
                 value={info.project}
                 onChange={set("project")}
                 disabled={continuing}
-                className={`${inputClass} ${okBorder}`}
+                {...errorProps("project")}
+                className={`${inputClass} ${errors.project ? errBorder : okBorder}`}
                 placeholder="Prosjektnavn"
               />
+              <FieldError id="info-project-error" message={errors.project} />
             </div>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -242,22 +276,16 @@ export function SubmissionInfoModal({
               autoComplete="off"
               maxLength={11}
               value={info.accountNumber}
-              onChange={(e) => {
-                set("accountNumber")(e);
-                setAccountError(null);
-              }}
-              onBlur={() => setAccountError(accountProblem(info.accountNumber))}
+              onChange={set("accountNumber")}
+              onBlur={() =>
+                setErrors((prev) => ({ ...prev, accountNumber: accountProblem(info.accountNumber) ?? undefined }))
+              }
               disabled={continuing}
-              aria-invalid={accountError ? true : undefined}
-              aria-describedby={accountError ? "info-account-error" : undefined}
-              className={`${inputClass} ${accountError ? errBorder : okBorder}`}
+              {...errorProps("accountNumber")}
+              className={`${inputClass} ${errors.accountNumber ? errBorder : okBorder}`}
               placeholder="11 sifre"
             />
-            {accountError && (
-              <p id="info-account-error" className="mt-1 text-[13px] text-neg">
-                {accountError}
-              </p>
-            )}
+            <FieldError id="info-accountNumber-error" message={errors.accountNumber} />
           </div>
         </div>
 
