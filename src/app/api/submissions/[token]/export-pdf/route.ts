@@ -7,6 +7,7 @@ import { prisma } from "@/lib/db";
 import { renderExpensePdfHtml } from "@/lib/pdf/renderExpensePdfHtml";
 import { htmlToPdf } from "@/lib/pdf/htmlToPdf";
 import { appendReceiptPages } from "@/lib/pdf/appendReceiptPages";
+import { readReceiptPreview } from "@/lib/receiptPreview";
 
 /** Maksimal størrelse for den eksporterte PDF-en (10 MB). */
 const MAX_PDF_SIZE_BYTES = 10 * 1024 * 1024;
@@ -148,10 +149,12 @@ export async function POST(
     const receiptsForAppend = mergedReceipts.map((r) => ({
       blobUrl: r.blobUrl,
       mimeType: r.mimeType,
+      previewKey: r.id,
       parts: r.parts.map((part) => ({
         blobUrl: part.blobUrl,
         mimeType: part.mimeType,
         originalFileName: part.originalFileName,
+        previewKey: `part-${part.id}`,
       })),
       summary: r.extractedSummary ?? "Kvittering",
       originalFileName: r.originalFileName,
@@ -166,7 +169,8 @@ export async function POST(
     const pdfBytes = await appendReceiptPages(
       summaryPdfBytes,
       receiptsForAppend,
-      getReceiptBytes
+      getReceiptBytes,
+      readReceiptPreview
     );
 
     if (pdfBytes.length > MAX_PDF_SIZE_BYTES) {
