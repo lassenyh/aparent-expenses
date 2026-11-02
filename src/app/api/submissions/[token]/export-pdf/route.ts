@@ -136,7 +136,6 @@ export async function POST(
         comment: r.comment ?? null,
         originalAmountCents: r.originalAmountCents ?? null,
         extractedCurrency: r.extractedCurrency ?? null,
-        merchant: r.merchant ?? null,
       })),
       totals: {
         totalCents,

@@ -993,7 +993,6 @@ export function ReviewEditor({
         comment: r.comment ?? null,
         originalAmountCents: r.originalAmountCents ?? null,
         extractedCurrency: r.extractedCurrency ?? null,
-        merchant: r.merchant ?? null,
       })),
       totals: { totalCents, productionCashCents, diffCents },
     };
@@ -1441,15 +1440,6 @@ export function ReviewEditor({
                             className="min-w-0 flex-1 h-8 w-full rounded-md border border-transparent bg-transparent px-2 py-1 font-medium text-ink hover:border-control focus:border-ink focus:bg-field focus:outline-none md:min-w-[16rem]"
                             placeholder="Beskrivelse"
                           />
-                          {r.merchant && (
-                            <span
-                              className="inline-flex max-w-[14rem] shrink-0 self-start rounded-md border border-line bg-raised px-1.5 py-0.5 text-xs text-muted md:self-center"
-                              title={r.merchant}
-                            >
-                              <span className="sr-only">Butikk: </span>
-                              <span className="truncate">{r.merchant}</span>
-                            </span>
-                          )}
                           {duplicateOf.has(r.id) && !isSubmitted && (
                             <span className="inline-flex shrink-0 flex-wrap items-center gap-x-2 self-start rounded-md border border-warn-line bg-warn-bg px-1.5 py-0.5 text-xs text-warn-ink md:self-center">
                               Mulig duplikat av kvittering {receipts.findIndex((x) => x.id === duplicateOf.get(r.id)) + 1}
