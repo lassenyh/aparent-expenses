@@ -111,8 +111,6 @@ export async function renderExpenseSummaryPdf({
   doc.setTitle("Utleggsskjema");
   const regular = await doc.embedFont(StandardFonts.Helvetica);
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
-  // Amounts and account numbers use a fixed-width face, as in the HTML layout.
-  const mono = await doc.embedFont(StandardFonts.Courier);
   const safe = makeSafe(regular);
 
   let page: PDFPage = doc.addPage([PAGE_W, PAGE_H]);
@@ -172,21 +170,21 @@ export async function renderExpenseSummaryPdf({
   top += SECTION_GAP;
 
   // Person and project info.
-  const infoRows: Array<[string, string, PDFFont]> = [
-    ["Navn", submission.name ?? "—", regular],
-    ["Prosjektnummer", submission.projectNumber?.trim() || "—", regular],
-    ["Prosjektnavn", submission.project ?? "—", regular],
-    ["Dato", formatDate(submission.workDate), regular],
-    ["Kontonummer", submission.accountNumber ?? "—", mono],
-    ["Produksjonskasse", formatNok(submission.productionCashCents), mono],
+  const infoRows: Array<[string, string]> = [
+    ["Navn", submission.name ?? "—"],
+    ["Prosjektnummer", submission.projectNumber?.trim() || "—"],
+    ["Prosjektnavn", submission.project ?? "—"],
+    ["Dato", formatDate(submission.workDate)],
+    ["Kontonummer", submission.accountNumber ?? "—"],
+    ["Produksjonskasse", formatNok(submission.productionCashCents)],
   ];
   const infoHeight = CARD_PAD + 12 + 12 + infoRows.length * (LINE + 9) - 9 + CARD_PAD;
   const infoTop = top;
   cardTitle("Person- og prosjektinfo", top + CARD_PAD + 9);
   let rowTop = top + CARD_PAD + 12 + 12;
-  for (const [label, value, font] of infoRows) {
+  for (const [label, value] of infoRows) {
     text(label, MARGIN_X + CARD_PAD, rowTop + 11, { color: muted });
-    text(value, PAGE_W - MARGIN_X - CARD_PAD, rowTop + 11, { font, align: "right" });
+    text(value, PAGE_W - MARGIN_X - CARD_PAD, rowTop + 11, { align: "right" });
     rowTop += LINE + 9;
   }
   box(MARGIN_X, infoTop, CONTENT_W, infoHeight, 9);
@@ -231,7 +229,7 @@ export async function renderExpenseSummaryPdf({
               color: muted,
             });
         }
-        text(formatNok(r.amountCents), colAmountRight, t + 9 + 11, { font: mono, align: "right" });
+        text(formatNok(r.amountCents), colAmountRight, t + 9 + 11, { align: "right" });
         if (comment) {
           hline(tableX, tableX + tableW, t + mainHeight);
           commentLines.forEach((line, k) => text(line, tableX + 24, t + mainHeight + 9 + 11 + k * LINE));
@@ -286,16 +284,15 @@ export async function renderExpenseSummaryPdf({
   const right = PAGE_W - MARGIN_X - CARD_PAD;
   const left = MARGIN_X + CARD_PAD;
   text("Total", left, t + 11, { color: muted });
-  text(formatNok(totalCents), right, t + 11, { font: mono, align: "right" });
+  text(formatNok(totalCents), right, t + 11, { align: "right" });
   t += LINE + 12;
   text("Produksjonskasse", left, t + 11, { color: muted });
-  text(formatNok(productionCashCents), right, t + 11, { font: mono, align: "right" });
+  text(formatNok(productionCashCents), right, t + 11, { align: "right" });
   t += LINE + 6;
   hline(left, right, t);
   t += 12;
   text(diffLabel(diffCents), left, t + 11);
   text(formatNok(diffCents), right, t + 11, {
-    font: mono,
     align: "right",
     color: diffCents > 0 ? positive : diffCents < 0 ? negative : ink,
   });
@@ -303,7 +300,7 @@ export async function renderExpenseSummaryPdf({
   if (diffCents < 0) {
     t += 6;
     text("Kontonummer for tilbakebetaling", left, t + 11, { color: muted });
-    text(REPAYMENT_ACCOUNT_NUMBER, right, t + 11, { font: mono, align: "right" });
+    text(REPAYMENT_ACCOUNT_NUMBER, right, t + 11, { align: "right" });
     t += LINE;
   }
   box(MARGIN_X, summaryTop, CONTENT_W, t + CARD_PAD - summaryTop, 9);
