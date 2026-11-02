@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { prisma } from "@/lib/db";
+import { requireAdmin } from "@/lib/adminAuth";
 import {
   ADMIN_SUBMITTER_COOKIE,
   getAdminSubmitterDefaults,
@@ -11,6 +12,7 @@ function generateSecureToken() {
 }
 
 export async function GET(request: Request) {
+  await requireAdmin();
   const defaults = getAdminSubmitterDefaults();
   if (!defaults) {
     return NextResponse.json(

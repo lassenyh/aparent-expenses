@@ -27,6 +27,8 @@ Konfigurer servervariabler lokalt i `.env.local` eller i driftsmiljøet. Ikke le
 | `ADMIN_EMAIL` | Regnskapsmottaker for vanlige utlegg, bindes ved opprettelse |
 | `RESEND_API_KEY`, `RESEND_FROM` | E-post; bruk verifisert avsender i drift |
 | `ADMIN_SUBMITTER_NAME`, `ADMIN_SUBMITTER_ACCOUNT`, `ADMIN_SUBMITTER_EMAIL` | Admin-forhåndsutfylling og mottaker. Opplysningene bindes til hvert oppgjør. |
+| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Innlogging til admin (Supabase Auth, lenke på e-post). Prosjekter og utlegg ligger fortsatt i egen database. |
+| `ADMIN_EMAILS` | Kommaseparert liste over e-postadresser som slipper inn i `/admin` |
 | `NEXT_DIST_DIR` | Valgfri separat Next-buildmappe for parallell testing |
 
 ## Gjeldende brukerflyt

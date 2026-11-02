@@ -29,7 +29,7 @@ export async function PATCH(request: Request) {
 
     const submission = await prisma.submission.findUnique({
       where: { accessToken: token },
-      select: { id: true, status: true },
+      select: { id: true, status: true, projectId: true },
     });
 
     // REVIEW is editable too: the info dialog can open when receipts are added from review.
@@ -58,8 +58,11 @@ export async function PATCH(request: Request) {
     } = {};
 
     if (fields.name !== undefined) data.name = fields.name ?? null;
-    if (fields.projectNumber !== undefined) data.projectNumber = fields.projectNumber ?? null;
-    if (fields.project !== undefined) data.project = fields.project ?? null;
+    // A claim from a project link keeps the project it was started with.
+    if (!submission.projectId) {
+      if (fields.projectNumber !== undefined) data.projectNumber = fields.projectNumber ?? null;
+      if (fields.project !== undefined) data.project = fields.project ?? null;
+    }
     if (fields.workDate !== undefined) {
       data.workDate = fields.workDate ? new Date(fields.workDate) : null;
     }

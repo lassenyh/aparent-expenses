@@ -32,10 +32,10 @@ function accountProblem(value: string): string | null {
 type FieldErrors = { name?: string; project?: string; accountNumber?: string };
 
 /** The same fields the review page requires before it submits. */
-function requiredProblems(info: SubmissionInfo): FieldErrors {
+function requiredProblems(info: SubmissionInfo, projectLocked: boolean): FieldErrors {
   const errors: FieldErrors = {};
   if (!info.name.trim()) errors.name = "Navn er påkrevd";
-  if (!info.project.trim()) errors.project = "Prosjektnavn er påkrevd";
+  if (!projectLocked && !info.project.trim()) errors.project = "Prosjektnavn er påkrevd";
   const account = info.accountNumber.trim() === "" ? "Kontonummer er påkrevd" : accountProblem(info.accountNumber);
   if (account) errors.accountNumber = account;
   return errors;
@@ -57,6 +57,7 @@ function FieldError({ id, message }: { id: string; message?: string }) {
  */
 export function SubmissionInfoModal({
   initialInfo,
+  projectLocked,
   progress,
   continuing,
   error,
@@ -64,6 +65,8 @@ export function SubmissionInfoModal({
   onClose,
 }: {
   initialInfo: SubmissionInfo;
+  /** Set from a project link: the project is shown, not edited. */
+  projectLocked: boolean;
   progress: AnalysisProgress;
   continuing: boolean;
   error: string | null;
@@ -99,7 +102,7 @@ export function SubmissionInfoModal({
   // The fields lock while the receipts finish, so nothing missing may get past this point.
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const problems = requiredProblems(info);
+    const problems = requiredProblems(info, projectLocked);
     setErrors(problems);
     if (problems.name) nameRef.current?.focus();
     else if (problems.project) projectRef.current?.focus();
@@ -178,59 +181,68 @@ export function SubmissionInfoModal({
             />
             <FieldError id="info-name-error" message={errors.name} />
           </div>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-[auto_1fr]">
-            <div className="min-w-0">
-              <label htmlFor="info-projectNumber" className="mb-1.5 flex items-center gap-1.5 text-[13px] text-muted">
-                Prosjektnummer
-                <span className="group relative inline-flex">
-                  <span
-                    className="inline-flex cursor-default text-faint hover:text-ink"
-                    aria-label="Prosjektnummer finnes i email, eller fås av produsent."
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden>
-                      <path
-                        fillRule="evenodd"
-                        d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-7-4a1 1 0 0 1 2 0v1a1 1 0 0 1-2 0V6ZM9 9a.75.75 0 0 0 0 1.5h.253a.25.25 0 0 1 .244.304l-.459 2.066A1.75 1.75 0 0 0 10.747 15H11a.75.75 0 0 0 0-1.5h-.253a.25.25 0 0 1-.244-.304l.459-2.066A1.75 1.75 0 0 0 9.253 9H9Z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  </span>
-                  <span className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 -translate-x-1/2 whitespace-nowrap rounded bg-ink px-2.5 py-1.5 text-xs text-ground opacity-0 shadow transition-opacity duration-150 group-hover:opacity-100">
-                    Prosjektnummer finnes i email, eller fås av produsent.
-                  </span>
-                </span>
-              </label>
-              <input
-                id="info-projectNumber"
-                type="number"
-                inputMode="numeric"
-                autoComplete="off"
-                value={info.projectNumber}
-                onChange={set("projectNumber")}
-                disabled={continuing}
-                className={`${inputClass} ${okBorder} min-w-28 sm:min-w-32 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none`}
-                placeholder="0"
-              />
+          {projectLocked ? (
+            <div>
+              <p className="mb-1.5 text-[13px] text-muted">Prosjekt</p>
+              <p className="flex min-h-9 items-center rounded-md border border-line bg-raised px-2.5 text-sm text-ink">
+                {[info.projectNumber.trim(), info.project.trim()].filter(Boolean).join(" – ")}
+              </p>
             </div>
-            <div className="min-w-0">
-              <label htmlFor="info-project" className="mb-1.5 block text-[13px] text-muted">
-                Prosjektnavn <span className="text-muted">*</span>
-              </label>
-              <input
-                ref={projectRef}
-                id="info-project"
-                type="text"
-                autoComplete="off"
-                value={info.project}
-                onChange={set("project")}
-                disabled={continuing}
-                {...errorProps("project")}
-                className={`${inputClass} ${errors.project ? errBorder : okBorder}`}
-                placeholder="Prosjektnavn"
-              />
-              <FieldError id="info-project-error" message={errors.project} />
+          ) : (
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-[auto_1fr]">
+              <div className="min-w-0">
+                <label htmlFor="info-projectNumber" className="mb-1.5 flex items-center gap-1.5 text-[13px] text-muted">
+                  Prosjektnummer
+                  <span className="group relative inline-flex">
+                    <span
+                      className="inline-flex cursor-default text-faint hover:text-ink"
+                      aria-label="Prosjektnummer finnes i email, eller fås av produsent."
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden>
+                        <path
+                          fillRule="evenodd"
+                          d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-7-4a1 1 0 0 1 2 0v1a1 1 0 0 1-2 0V6ZM9 9a.75.75 0 0 0 0 1.5h.253a.25.25 0 0 1 .244.304l-.459 2.066A1.75 1.75 0 0 0 10.747 15H11a.75.75 0 0 0 0-1.5h-.253a.25.25 0 0 1-.244-.304l.459-2.066A1.75 1.75 0 0 0 9.253 9H9Z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </span>
+                    <span className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 -translate-x-1/2 whitespace-nowrap rounded bg-ink px-2.5 py-1.5 text-xs text-ground opacity-0 shadow transition-opacity duration-150 group-hover:opacity-100">
+                      Prosjektnummer finnes i email, eller fås av produsent.
+                    </span>
+                  </span>
+                </label>
+                <input
+                  id="info-projectNumber"
+                  type="number"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  value={info.projectNumber}
+                  onChange={set("projectNumber")}
+                  disabled={continuing}
+                  className={`${inputClass} ${okBorder} min-w-28 sm:min-w-32 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none`}
+                  placeholder="0"
+                />
+              </div>
+              <div className="min-w-0">
+                <label htmlFor="info-project" className="mb-1.5 block text-[13px] text-muted">
+                  Prosjektnavn <span className="text-muted">*</span>
+                </label>
+                <input
+                  ref={projectRef}
+                  id="info-project"
+                  type="text"
+                  autoComplete="off"
+                  value={info.project}
+                  onChange={set("project")}
+                  disabled={continuing}
+                  {...errorProps("project")}
+                  className={`${inputClass} ${errors.project ? errBorder : okBorder}`}
+                  placeholder="Prosjektnavn"
+                />
+                <FieldError id="info-project-error" message={errors.project} />
+              </div>
             </div>
-          </div>
+          )}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label htmlFor="info-workDate" className="mb-1.5 block text-[13px] text-muted">

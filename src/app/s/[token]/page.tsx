@@ -67,7 +67,12 @@ export default async function SubmissionPage(props: PageProps) {
               Sørg for at beskrivelsen av kvitteringen matcher kjøpet før du sender inn.
             </p>
           </div>
-          <UploadStep token={token} receipts={receipts} initialInfo={initialInfo} />
+          <UploadStep
+            token={token}
+            receipts={receipts}
+            initialInfo={initialInfo}
+            projectLocked={submission.projectId != null}
+          />
         </div>
       </div>
     </main>

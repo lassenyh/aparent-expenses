@@ -150,8 +150,9 @@ export async function POST(
       where: { id: submission.id },
       data: {
         name: body.name ?? submission.name,
-        projectNumber: body.projectNumber ?? submission.projectNumber,
-        project: body.project ?? submission.project,
+        // A claim from a project link keeps the project it was started with.
+        projectNumber: submission.projectId ? submission.projectNumber : (body.projectNumber ?? submission.projectNumber),
+        project: submission.projectId ? submission.project : (body.project ?? submission.project),
         workDate: body.workDate
           ? new Date(body.workDate)
           : submission.workDate,
