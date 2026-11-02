@@ -13,6 +13,7 @@ const RESET_ANALYSIS = {
   extractedCurrency: "NOK",
   originalAmountCents: null,
   merchant: null,
+  receiptDate: null,
   commentFlags: null,
   analysisStartedAt: null,
 };

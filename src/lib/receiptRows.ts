@@ -8,6 +8,11 @@ export type UploadListItem = {
   sizeBytes: number;
   blobUrl: string;
   analyzed: boolean;
+  /** Fields used to spot possible duplicates; null until the receipt is analysed. */
+  contentHash: string | null;
+  merchant: string | null;
+  receiptDate: string | null;
+  extractedTotalCents: number | null;
   /** Extra images after the receipt's own file, in order. */
   parts: ReceiptPartSummary[];
 };
@@ -30,6 +35,10 @@ export async function uploadListForClient(submissionId: string): Promise<UploadL
       sizeBytes: true,
       blobUrl: true,
       extractedSummary: true,
+      contentHash: true,
+      merchant: true,
+      receiptDate: true,
+      extractedTotalCents: true,
       parts: PART_SELECT,
     },
   });
@@ -59,6 +68,8 @@ export async function receiptRowForClient(id: string) {
     commentFlags: r.commentFlags ?? null,
     dismissedCommentFlags: r.dismissedCommentFlags ?? null,
     merchant: r.merchant ?? null,
+    receiptDate: r.receiptDate ?? null,
+    contentHash: r.contentHash ?? null,
     parts: r.parts,
   };
 }

@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { upload } from "@vercel/blob/client";
 import { forEachConcurrent } from "@/lib/forEachConcurrent";
 import { mergeReceipts } from "@/lib/mergeReceipts";
+import { findDuplicates } from "@/lib/duplicates";
+import { isDuplicateKept, keepDuplicate } from "@/lib/duplicateKeep";
 import { SubmissionInfoModal, type SubmissionInfo } from "./SubmissionInfoModal";
 import { UPLOAD_INTRO_SEEN_KEY, UploadIntro } from "./UploadIntro";
 
@@ -18,7 +20,14 @@ type ReceiptItem = {
   analyzed?: boolean;
   /** Extra images of the same receipt, after its own file. */
   parts?: Array<{ id: string; mimeType: string; originalFileName: string }>;
+  /** Filled in by the analysis; used to warn about possible duplicates. */
+  contentHash?: string | null;
+  merchant?: string | null;
+  receiptDate?: string | null;
+  extractedTotalCents?: number | null;
 };
+
+const DUPLICATE_FIELDS = ["contentHash", "merchant", "receiptDate", "extractedTotalCents"] as const;
 
 type AnalysisState = "pending" | "done" | "error";
 
@@ -68,6 +77,19 @@ export function UploadStep({
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [busyIds, setBusyIds] = useState<Map<string, string>>(new Map());
   const [showIntro, setShowIntro] = useState(false);
+  const [keptIds, setKeptIds] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    // Read after mount so the server render and the first client render agree.
+    const timer = setTimeout(() =>
+      setKeptIds(new Set(initialReceipts.filter((r) => isDuplicateKept(r.id)).map((r) => r.id)))
+    );
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const duplicateOf = useMemo(
+    () => findDuplicates(receipts.filter((r) => analysis[r.id] !== "pending" && !keptIds.has(r.id))),
+    [receipts, analysis, keptIds]
+  );
 
   useEffect(() => {
     // Shown once per device, before the first upload; «Slik fungerer det» opens it again.
@@ -116,6 +138,12 @@ export function UploadStep({
           );
           // 404: deleted meanwhile. Failures are retried by /analyze when the user continues.
           if (!res.ok && res.status !== 404) throw new Error("Analyse feilet");
+          const data = res.ok ? await res.json().catch(() => null) : null;
+          const row = data?.receipt as Partial<ReceiptItem> | undefined;
+          if (row && current()) {
+            const fields = Object.fromEntries(DUPLICATE_FIELDS.map((f) => [f, row[f] ?? null]));
+            setReceipts((prev) => prev.map((r) => (r.id === id ? { ...r, ...fields } : r)));
+          }
         } finally {
           activeAnalysesRef.current--;
           waitingAnalysesRef.current.shift()?.();
@@ -557,6 +585,21 @@ export function UploadStep({
                       </p>
                       {busy ? (
                         <p className="text-[12.5px] text-muted">{busy}</p>
+                      ) : duplicateOf.has(r.id) ? (
+                        <p className="text-[12.5px] text-warn-ink">
+                          Mulig duplikat av{" "}
+                          {receipts.find((x) => x.id === duplicateOf.get(r.id))?.originalFileName ?? "en annen kvittering"}.{" "}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              keepDuplicate(r.id);
+                              setKeptIds((prev) => new Set(prev).add(r.id));
+                            }}
+                            className="font-medium underline underline-offset-2 hover:text-ink"
+                          >
+                            Behold
+                          </button>
+                        </p>
                       ) : (
                         <>
                           {analysis[r.id] === "pending" && (

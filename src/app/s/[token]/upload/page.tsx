@@ -45,6 +45,10 @@ export default async function UploadOnlyPage(props: PageProps) {
     sizeBytes: r.sizeBytes,
     blobUrl: r.blobUrl,
     analyzed: r.extractedSummary != null,
+    contentHash: r.contentHash,
+    merchant: r.merchant,
+    receiptDate: r.receiptDate,
+    extractedTotalCents: r.extractedTotalCents,
     parts: r.parts,
   }));
   const initialInfo = await getInitialSubmissionInfo(submission);
