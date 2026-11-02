@@ -45,6 +45,8 @@ Nye utlegg starter med norsk konto og krever 11 sifre. «International account»
 
 Utenlandsk konto krever et IBAN-land, gyldig IBAN med kontrollsiffer, BIC som passer banklandet, og full adresse. Beløp og oppgjør er fortsatt i NOK. Land uten IBAN støttes ikke av dette skjemaet. Opplysninger normaliseres og valideres også på serveren, og lagres i `Submission.bankDetails`. Norsk konto bruker fortsatt `accountNumber`. Bytte til norsk konto nullstiller utenlandske opplysninger når skjemaet lagres.
 
+Testbilaget i den isolerte bankforhåndsvisningen må være en faktisk privat fil i Vercel Blob, også når innholdet er syntetisk. `node --import tsx scripts/repair-bank-preview.ts` lager og kontrollerer et tydelig merket JPEG-testbilag og erstatter bare filreferansen i det kjente utviklingsutlegget. Skriptet nekter å kjøre mot andre skjemaer enn `expenses_development` og bevarer person- og bankopplysninger som allerede er fylt inn.
+
 Den additive migreringen `20261103100000_international_accounts` legger til ett valgfritt JSON-felt. Kjør den i riktig databaseskjema før den nye appversjonen brukes. Eksisterende utlegg og tidligere PDF-er endres ikke.
 
 ## Gjeldende brukerflyt

@@ -114,7 +114,7 @@ export default async function ReviewPage(props: PageProps) {
                   <dd className="text-ink">{formatNok(cashCents)}</dd>
                 </div>
                 <div className="flex items-baseline justify-between gap-3 border-t border-rule pt-2">
-                  <dt className="text-muted">{diffLabel(diffCents)}</dt>
+                  <dt className="text-muted"><T>{diffLabel(diffCents)}</T></dt>
                   <dd className={`whitespace-nowrap text-[26px] font-bold tracking-[-0.02em] ${diffCents < 0 ? "text-neg" : "text-data"}`}>
                     {formatNok(diffCents)}
                   </dd>
