@@ -20,7 +20,7 @@ function looksLikeHeic(mimeType: string, fileName: string): boolean {
  * Blob er private – direkte blob-URL gir Forbidden, derfor proxy her.
  */
 export async function GET(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ token: string; receiptId: string }> }
 ) {
   const { token, receiptId } = await context.params;
@@ -37,15 +37,24 @@ export async function GET(
     return NextResponse.json({ error: "Submission not found" }, { status: 404 });
   }
 
-  const receipt = submission.receipts.find((r) => r.id === receiptId);
-  if (!receipt) {
+  const found = submission.receipts.find((r) => r.id === receiptId);
+  if (!found) {
     return NextResponse.json({ error: "Receipt not found" }, { status: 404 });
+  }
+
+  // ?part=<id> serves one of the receipt's extra images instead of its own file.
+  const partId = new URL(request.url).searchParams.get("part");
+  let receipt = { ...found, previewKey: found.id };
+  if (partId) {
+    const part = await prisma.receiptPart.findFirst({ where: { id: partId, receiptId } });
+    if (!part) return NextResponse.json({ error: "Receipt part not found" }, { status: 404 });
+    receipt = { ...found, ...part, id: found.id, previewKey: `part-${part.id}` };
   }
 
   try {
     // Only Safari can show HEIC, so iPhone photos are converted to JPEG for viewing.
     if (looksLikeHeic(receipt.mimeType, receipt.originalFileName)) {
-      const preview = await readReceiptPreview(receipt.id);
+      const preview = await readReceiptPreview(receipt.previewKey);
       if (preview) {
         return new NextResponse(new Uint8Array(preview), {
           headers: {
@@ -63,7 +72,7 @@ export async function GET(
         const jpeg = await normalizeReceiptImage(bytes, receipt.mimeType);
         // Receipts analysed before previews were stored get one now, after the response.
         after(() =>
-          storeReceiptPreview(receipt.id, jpeg).catch((error) =>
+          storeReceiptPreview(receipt.previewKey, jpeg).catch((error) =>
             console.warn("[receipt blob] Kunne ikke lagre forhåndsvisning", error)
           )
         );

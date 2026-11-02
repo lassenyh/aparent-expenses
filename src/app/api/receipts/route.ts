@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { uploadListForClient } from "@/lib/receiptRows";
 
 export async function POST(request: Request) {
   try {
@@ -61,17 +62,7 @@ export async function POST(request: Request) {
       },
     });
 
-    const receipts = await prisma.receipt.findMany({
-      where: { submissionId: submission.id },
-      select: {
-        id: true,
-        originalFileName: true,
-        mimeType: true,
-        sizeBytes: true,
-        blobUrl: true,
-      },
-      orderBy: { createdAt: "asc" },
-    });
+    const receipts = await uploadListForClient(submission.id);
 
     return NextResponse.json({
       receipt: {

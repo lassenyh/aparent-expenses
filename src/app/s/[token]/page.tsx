@@ -16,7 +16,17 @@ export default async function SubmissionPage(props: PageProps) {
 
   const submission = await prisma.submission.findUnique({
     where: { accessToken: token },
-    include: { receipts: { orderBy: { createdAt: "asc" } } },
+    include: {
+      receipts: {
+        orderBy: { createdAt: "asc" },
+        include: {
+          parts: {
+            orderBy: { position: "asc" },
+            select: { id: true, mimeType: true, originalFileName: true },
+          },
+        },
+      },
+    },
   });
 
   if (!submission) return notFound();
@@ -32,6 +42,7 @@ export default async function SubmissionPage(props: PageProps) {
     sizeBytes: r.sizeBytes,
     blobUrl: r.blobUrl,
     analyzed: r.extractedSummary != null,
+    parts: r.parts,
   }));
 
   const initialInfo = await getInitialSubmissionInfo(submission);

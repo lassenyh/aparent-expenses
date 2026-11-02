@@ -105,3 +105,28 @@ test("fails with the filename instead of silently adding a blank page", async ()
     /Kunne ikke behandle bildet broken\.heic/
   );
 });
+
+test("a receipt in several images gets one page per image after the summary", async () => {
+  const summary = await PDFDocument.create();
+  summary.addPage([300, 400]);
+  const summaryBytes = Buffer.from(await summary.save());
+  const image = (background) =>
+    sharp({ create: { width: 60, height: 120, channels: 3, background } }).jpeg().toBuffer();
+  const files = { top: await image("#ffffff"), bottom: await image("#eeeeee"), other: await image("#dddddd") };
+
+  const merged = await appendReceiptPages(
+    summaryBytes,
+    [
+      {
+        blobUrl: "top",
+        mimeType: "image/jpeg",
+        parts: [{ blobUrl: "bottom", mimeType: "image/jpeg" }],
+      },
+      { blobUrl: "other", mimeType: "image/jpeg" },
+    ],
+    async (url) => files[url],
+  );
+
+  const doc = await PDFDocument.load(merged);
+  assert.equal(doc.getPageCount(), 4);
+});

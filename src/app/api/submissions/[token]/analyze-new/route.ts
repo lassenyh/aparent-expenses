@@ -2,7 +2,7 @@ import { forEachConcurrent } from "@/lib/forEachConcurrent";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { ANALYSIS_CONCURRENCY } from "@/lib/submissionAnalysis";
-import { analyzeAndStoreReceipt, readReceiptBlob } from "@/lib/analyzeStoredReceipt";
+import { analyzeAndStoreReceipt, loadReceiptFiles } from "@/lib/analyzeStoredReceipt";
 
 /**
  * POST /api/submissions/[token]/analyze-new
@@ -55,14 +55,14 @@ export async function POST(
     }
 
     await forEachConcurrent(toAnalyze, ANALYSIS_CONCURRENCY, async (receipt) => {
-      let bytes: Buffer | null;
+      let files: Awaited<ReturnType<typeof loadReceiptFiles>>;
       try {
-        bytes = await readReceiptBlob(receipt.blobUrl);
+        files = await loadReceiptFiles(receipt);
       } catch {
         return;
       }
-      if (!bytes) return;
-      await analyzeAndStoreReceipt(receipt, bytes);
+      if (!files) return;
+      await analyzeAndStoreReceipt(receipt, files);
     });
 
     const updated = await prisma.submission.findUnique({

@@ -28,7 +28,13 @@ type ReceiptRow = {
   dismissedCommentFlags: string | null;
   /** Shop or supplier read by the analysis; null for receipts analysed before it was stored. */
   merchant?: string | null;
+  /** Extra images of the same receipt, after its own file, in order. */
+  parts?: ReceiptPartRef[];
 };
+
+type ReceiptPartRef = { id: string; mimeType: string; originalFileName: string };
+
+const ALLOWED_FILE_PREFIXES = ["image/", "application/pdf"];
 
 function mapToReceiptRow(r: ReceiptRow): ReceiptRow {
   return {
@@ -44,6 +50,7 @@ function mapToReceiptRow(r: ReceiptRow): ReceiptRow {
     commentFlags: r.commentFlags ?? null,
     dismissedCommentFlags: r.dismissedCommentFlags ?? null,
     merchant: r.merchant ?? null,
+    parts: r.parts ?? [],
   };
 }
 
@@ -105,7 +112,17 @@ export function ReviewEditor({
     initialData.combinedPdfUrl
   );
   const [previewReceipt, setPreviewReceipt] = useState<ReceiptRow | null>(null);
-  const [loadedPreviewId, setLoadedPreviewId] = useState<string | null>(null);
+  /** Preview images that have loaded, keyed by receipt id or "receiptId:partId". */
+  const [loadedPreviewKeys, setLoadedPreviewKeys] = useState<Set<string>>(() => new Set());
+  /** Receipts being uploaded to or analysed again after images were added or merged. */
+  const [reanalyzingIds, setReanalyzingIds] = useState<Set<string>>(() => new Set());
+  /** Receipts whose amount just changed after a new analysis; highlighted briefly. */
+  const [highlightIds, setHighlightIds] = useState<Set<string>>(() => new Set());
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [mergeTargetId, setMergeTargetId] = useState<string | null>(null);
+  const [mergeSelection, setMergeSelection] = useState<Set<string>>(() => new Set());
+  const addPartInputRef = useRef<HTMLInputElement>(null);
+  const addPartTargetRef = useRef<string | null>(null);
   const prefetchedPreviewIds = useRef<Set<string>>(new Set());
   const [addingReceipts, setAddingReceipts] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
@@ -309,6 +326,8 @@ export function ReviewEditor({
               comment: existing?.comment ?? null,
               commentFlags: existing?.commentFlags ?? null,
               dismissedCommentFlags: existing?.dismissedCommentFlags ?? null,
+              merchant: existing?.merchant ?? null,
+              parts: existing?.parts ?? [],
             } as ReceiptRow;
           });
           setReceipts(currentReceipts);
@@ -323,7 +342,11 @@ export function ReviewEditor({
         }
         const updated = await analyzeRes.json();
         if (updated?.receipts?.length) {
-          const mapped = updated.receipts.map(mapToReceiptRow);
+          // analyze-new returns plain rows without parts; keep the parts already known.
+          const partsById = new Map(currentReceipts.map((r) => [r.id, r.parts ?? []]));
+          const mapped = (updated.receipts as ReceiptRow[]).map((r) =>
+            mapToReceiptRow({ ...r, parts: r.parts ?? partsById.get(r.id) ?? [] })
+          );
           setReceipts(mapped);
           setCommentExpandedIds((prev) => {
             const next = new Set(prev);
@@ -364,6 +387,269 @@ export function ReviewEditor({
     },
     [token, receipts, isSubmitted]
   );
+
+  const setInSet = (
+    setter: React.Dispatch<React.SetStateAction<Set<string>>>,
+    id: string,
+    on: boolean
+  ) =>
+    setter((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+
+  /** Replaces a row with fresh data from the server after it was analysed again. */
+  const applyAnalyzedRow = (row: ReceiptRow) => {
+    const mapped = mapToReceiptRow(row);
+    setReceipts((prev) => prev.map((r) => (r.id === mapped.id ? mapped : r)));
+    setAmountInputs((prev) => {
+      const next = { ...prev };
+      delete next[mapped.id];
+      return next;
+    });
+    if (parseCommentFlags(mapped.commentFlags).length > 0) {
+      setInSet(setCommentExpandedIds, mapped.id, true);
+      setInSet(setCommentFieldCollapsedIds, mapped.id, false);
+    }
+    setInSet(setHighlightIds, mapped.id, true);
+    setTimeout(() => setInSet(setHighlightIds, mapped.id, false), 2000);
+  };
+
+  const reanalyzeReceipt = async (id: string) => {
+    const res = await fetch(
+      `/api/submissions/${encodeURIComponent(token)}/receipts/${encodeURIComponent(id)}/analyze`,
+      { method: "POST" }
+    );
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error ?? "Analyse av kvitteringen feilet");
+    if (data.receipt) applyAnalyzedRow(data.receipt as ReceiptRow);
+  };
+
+  /** Adds photos of the rest of a long receipt as further parts, then reads the receipt again. */
+  const handleAddParts = async (receiptId: string, files: FileList | null) => {
+    const list = Array.from(files ?? []).filter((file) =>
+      ALLOWED_FILE_PREFIXES.some((p) => file.type.toLowerCase().startsWith(p))
+    );
+    if (!list.length || isSubmitted) return;
+    setAddError(null);
+    setInSet(setReanalyzingIds, receiptId, true);
+    try {
+      for (const file of list) {
+        const blob = await upload(file.name, file, {
+          access: "private",
+          handleUploadUrl: "/api/blob",
+          clientPayload: JSON.stringify({
+            token,
+            originalFileName: file.name,
+            mimeType: file.type,
+            sizeBytes: file.size,
+          }),
+        });
+        const res = await fetch(
+          `/api/submissions/${encodeURIComponent(token)}/receipts/${encodeURIComponent(receiptId)}/parts`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              originalFileName: file.name,
+              mimeType: file.type,
+              sizeBytes: file.size,
+              blobUrl: blob.url,
+              blobPath: (blob as { pathname?: string }).pathname ?? blob.url,
+            }),
+          }
+        );
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error ?? "Kunne ikke legge til bildet");
+        if (data.receipt) {
+          const row = mapToReceiptRow(data.receipt as ReceiptRow);
+          setReceipts((prev) => prev.map((r) => (r.id === row.id ? row : r)));
+        }
+      }
+      await reanalyzeReceipt(receiptId);
+    } catch (e) {
+      setAddError((e as Error).message);
+    } finally {
+      setInSet(setReanalyzingIds, receiptId, false);
+    }
+  };
+
+  /** Merges other receipts into one, in list order, then reads it again. */
+  const handleMerge = async (targetId: string, sourceIds: string[]) => {
+    if (!sourceIds.length || isSubmitted) return;
+    setAddError(null);
+    setInSet(setReanalyzingIds, targetId, true);
+    try {
+      const res = await fetch(`/api/submissions/${encodeURIComponent(token)}/receipts/merge`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetId, sourceIds }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Kunne ikke slå sammen kvitteringene");
+      const target = data.receipt ? mapToReceiptRow(data.receipt as ReceiptRow) : null;
+      setReceipts((prev) =>
+        prev
+          .filter((r) => !sourceIds.includes(r.id))
+          .map((r) => (target && r.id === target.id ? target : r))
+      );
+      setAmountInputs((prev) => {
+        const next = { ...prev };
+        sourceIds.forEach((id) => delete next[id]);
+        return next;
+      });
+      await reanalyzeReceipt(targetId);
+    } catch (e) {
+      setAddError((e as Error).message);
+    } finally {
+      setInSet(setReanalyzingIds, targetId, false);
+    }
+  };
+
+  /** Turns the extra images of a receipt back into receipts of their own and reads them all again. */
+  const handleSplit = async (id: string) => {
+    if (isSubmitted) return;
+    setAddError(null);
+    setInSet(setReanalyzingIds, id, true);
+    let affected: string[] = [id];
+    try {
+      const res = await fetch(
+        `/api/submissions/${encodeURIComponent(token)}/receipts/${encodeURIComponent(id)}/split`,
+        { method: "POST" }
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Kunne ikke dele opp kvitteringen");
+      const list = data.receipts as Array<{ id: string; originalFileName: string; mimeType: string; blobUrl: string }>;
+      const knownIds = new Set(receipts.map((r) => r.id));
+      affected = [id, ...list.filter((item) => !knownIds.has(item.id)).map((item) => item.id)];
+      setReceipts((prev) => {
+        const byId = new Map(prev.map((r) => [r.id, r]));
+        return list.map((item) => {
+          const existing = byId.get(item.id);
+          if (existing && item.id !== id) return existing;
+          return mapToReceiptRow({
+            ...(existing ?? {}),
+            ...item,
+            extractedSummary: null,
+            extractedTotalCents: null,
+            extractedCurrency: null,
+            originalAmountCents: null,
+            comment: existing?.comment ?? null,
+            commentFlags: null,
+            dismissedCommentFlags: existing?.dismissedCommentFlags ?? null,
+            merchant: null,
+            parts: [],
+          } as ReceiptRow);
+        });
+      });
+      affected.forEach((rid) => setInSet(setReanalyzingIds, rid, true));
+      await Promise.all(affected.map((rid) => reanalyzeReceipt(rid)));
+    } catch (e) {
+      setAddError((e as Error).message);
+    } finally {
+      affected.forEach((rid) => setInSet(setReanalyzingIds, rid, false));
+    }
+  };
+
+  useEffect(() => {
+    if (!openMenuId) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (!(e.target as HTMLElement).closest?.("[data-more-menu]")) setOpenMenuId(null);
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpenMenuId(null);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [openMenuId]);
+
+  useEffect(() => {
+    if (!mergeTargetId) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMergeTargetId(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [mergeTargetId]);
+
+  const renderMoreMenu = (r: ReceiptRow) => {
+    if (isSubmitted) return null;
+    const open = openMenuId === r.id;
+    const itemClass =
+      "block w-full px-3 py-2 text-left text-sm text-ink hover:bg-raised focus:bg-raised focus:outline-none";
+    return (
+      <div className="relative" data-more-menu>
+        <button
+          type="button"
+          onClick={() => setOpenMenuId(open ? null : r.id)}
+          disabled={reanalyzingIds.has(r.id)}
+          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-control bg-surface text-muted hover:border-control-hover hover:text-ink focus:border-ink focus:outline-none disabled:opacity-50"
+          title="Flere valg"
+          aria-label="Flere valg"
+          aria-haspopup="menu"
+          aria-expanded={open}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden>
+            <path d="M3 10a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0ZM8.5 10a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0ZM15.5 8.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z" />
+          </svg>
+        </button>
+        {open && (
+          <div
+            role="menu"
+            aria-label="Flere valg"
+            className="absolute right-0 top-9 z-30 min-w-[12rem] overflow-hidden rounded-md border border-line bg-surface py-1 shadow-lg"
+          >
+            <button
+              type="button"
+              role="menuitem"
+              autoFocus
+              className={itemClass}
+              onClick={() => {
+                setOpenMenuId(null);
+                addPartTargetRef.current = r.id;
+                addPartInputRef.current?.click();
+              }}
+            >
+              Legg til bilde
+            </button>
+            {receipts.length > 1 && (
+              <button
+                type="button"
+                role="menuitem"
+                className={itemClass}
+                onClick={() => {
+                  setOpenMenuId(null);
+                  setMergeSelection(new Set());
+                  setMergeTargetId(r.id);
+                }}
+              >
+                Slå sammen med …
+              </button>
+            )}
+            {(r.parts?.length ?? 0) > 0 && (
+              <button
+                type="button"
+                role="menuitem"
+                className={itemClass}
+                onClick={() => {
+                  setOpenMenuId(null);
+                  void handleSplit(r.id);
+                }}
+              >
+                Del opp i egne kvitteringer
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const scheduleCommentSave = useCallback(
     (id: string, comment: string | null) => {
@@ -640,6 +926,24 @@ export function ReviewEditor({
   };
   const isImage =
     previewReceipt?.mimeType?.toLowerCase().startsWith("image/") ?? false;
+  /** The receipt's own file followed by its extra parts, for the preview dialog. */
+  const previewFiles = previewReceipt
+    ? [
+        {
+          key: previewReceipt.id,
+          url: receiptFileUrl(previewReceipt.id),
+          mimeType: previewReceipt.mimeType,
+          name: previewReceipt.originalFileName,
+        },
+        ...(previewReceipt.parts ?? []).map((p) => ({
+          key: `${previewReceipt.id}:${p.id}`,
+          url: `${receiptFileUrl(previewReceipt.id)}?part=${encodeURIComponent(p.id)}`,
+          mimeType: p.mimeType,
+          name: p.originalFileName,
+        })),
+      ]
+    : [];
+  const markPreviewLoaded = (key: string) => setInSet(setLoadedPreviewKeys, key, true);
 
   useEffect(() => {
     if (!previewReceipt) return;
@@ -999,11 +1303,12 @@ export function ReviewEditor({
             <div className="w-6">#</div>
             <div>Beskrivelse</div>
             <div className="text-right w-28">Beløp</div>
-            <div className="w-[4.25rem] text-right"><span className="sr-only">Handlinger</span></div>
+            <div className="w-[6.5rem] text-right"><span className="sr-only">Handlinger</span></div>
           </div>
           {receipts.flatMap((r, i) => {
                 const isPending =
-                  addingReceipts && r.extractedSummary == null;
+                  (addingReceipts && r.extractedSummary == null) ||
+                  reanalyzingIds.has(r.id);
                 if (isPending) {
                   return [
                     <div key={r.id} className="border-b border-rule py-3">
@@ -1122,6 +1427,11 @@ export function ReviewEditor({
                             >
                               <span className="sr-only">Butikk: </span>
                               <span className="truncate">{r.merchant}</span>
+                            </span>
+                          )}
+                          {(r.parts?.length ?? 0) > 0 && (
+                            <span className="shrink-0 self-start text-xs text-muted md:self-center">
+                              +{r.parts!.length} {r.parts!.length === 1 ? "bilde" : "bilder"}
                             </span>
                           )}
                           {r.originalAmountCents != null &&
@@ -1247,7 +1557,7 @@ export function ReviewEditor({
                         <div className="hidden md:flex h-8 items-center justify-end gap-1">
                           <input
                             {...amountInputProps}
-                            className={`h-8 w-28 rounded-md border bg-field px-2 py-1 text-right font-semibold text-ink focus:outline-none ${
+                            className={`h-8 w-28 rounded-md border bg-field px-2 py-1 text-right font-semibold text-ink transition-shadow focus:outline-none ${highlightIds.has(r.id) ? "ring-2 ring-load" : ""} ${
                               showAmountErrors &&
                               r.extractedTotalCents == null
                                 ? "border-neg focus:border-neg"
@@ -1285,6 +1595,7 @@ export function ReviewEditor({
                               </svg>
                             </button>
                           )}
+                          {renderMoreMenu(r)}
                         </div>
                       </div>
                       {/* Mobile only: Mat/drikke på egen linje under beskrivelse (gir mer plass til beløp + ikoner) */}
@@ -1391,7 +1702,7 @@ export function ReviewEditor({
                         <div className="flex h-8 items-center gap-1">
                           <input
                             {...amountInputProps}
-                            className={`h-8 w-24 rounded-md border bg-field px-2 py-1 text-right font-semibold text-ink focus:outline-none ${
+                            className={`h-8 w-24 rounded-md border bg-field px-2 py-1 text-right font-semibold text-ink transition-shadow focus:outline-none ${highlightIds.has(r.id) ? "ring-2 ring-load" : ""} ${
                               showAmountErrors &&
                               r.extractedTotalCents == null
                                 ? "border-neg focus:border-neg"
@@ -1428,6 +1739,7 @@ export function ReviewEditor({
                               </svg>
                             </button>
                           )}
+                          {renderMoreMenu(r)}
                         </div>
                       </div>
                       {/* Mobile: "Legg til kommentar" on its own row (align left with description) */}
@@ -1917,9 +2229,15 @@ export function ReviewEditor({
           onClick={() => setPreviewReceipt(null)}
         >
           <div
-            className={`relative rounded-lg bg-surface shadow-xl flex items-start justify-center ${isImage ? "w-fit max-w-[95vw] max-h-[90vh] overflow-auto" : "min-w-[280px] min-h-[400px] max-w-[95vw] max-h-[90vh] resize overflow-auto"}`}
+            className={`relative rounded-lg bg-surface shadow-xl flex items-start justify-center ${
+              previewFiles.length > 1
+                ? "w-[min(95vw,760px)] max-h-[90vh] overflow-auto"
+                : isImage
+                  ? "w-fit max-w-[95vw] max-h-[90vh] overflow-auto"
+                  : "min-w-[280px] min-h-[400px] max-w-[95vw] max-h-[90vh] resize overflow-auto"
+            }`}
             onClick={(e) => e.stopPropagation()}
-            style={!isImage ? { width: "min(95vw, 800px)", height: "85vh" } : undefined}
+            style={previewFiles.length === 1 && !isImage ? { width: "min(95vw, 800px)", height: "85vh" } : undefined}
           >
             <button
               type="button"
@@ -1931,9 +2249,42 @@ export function ReviewEditor({
                 <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
               </svg>
             </button>
-            {isImage ? (
+            {previewFiles.length > 1 ? (
+              <div className="w-full space-y-5 p-4 pt-12">
+                {previewFiles.map((file, k) => {
+                  const fileIsImage = file.mimeType?.toLowerCase().startsWith("image/");
+                  const loaded = loadedPreviewKeys.has(file.key);
+                  const alt = `${previewReceipt.extractedSummary || previewReceipt.originalFileName}, del ${k + 1} av ${previewFiles.length}`;
+                  return (
+                    <figure key={file.key} className="space-y-2">
+                      <figcaption className="text-xs text-muted">
+                        Del {k + 1} av {previewFiles.length}
+                      </figcaption>
+                      {fileIsImage ? (
+                        <>
+                          {!loaded && (
+                            <div className="flex h-64 w-full flex-col items-center justify-center gap-3 rounded-md bg-raised text-sm text-muted" role="status">
+                              <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden />
+                              Henter bilaget…
+                            </div>
+                          )}
+                          <img
+                            src={file.url}
+                            alt={alt}
+                            onLoad={() => markPreviewLoaded(file.key)}
+                            className={`mx-auto h-auto max-w-full object-contain ${loaded ? "block" : "hidden"}`}
+                          />
+                        </>
+                      ) : (
+                        <iframe src={file.url} title={alt} className="h-[70vh] w-full rounded-md border border-line" />
+                      )}
+                    </figure>
+                  );
+                })}
+              </div>
+            ) : isImage ? (
               <>
-                {loadedPreviewId !== previewReceipt.id && (
+                {!loadedPreviewKeys.has(previewReceipt.id) && (
                   <div className="flex h-[60vh] w-[min(80vw,420px)] flex-col items-center justify-center gap-3 text-sm text-muted" role="status">
                     <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden />
                     Henter bilaget…
@@ -1943,8 +2294,8 @@ export function ReviewEditor({
                   key={previewReceipt.id}
                   src={blobPreviewUrl}
                   alt={previewReceipt.extractedSummary || previewReceipt.originalFileName}
-                  onLoad={() => setLoadedPreviewId(previewReceipt.id)}
-                  className={`max-h-[90vh] max-w-[95vw] w-auto h-auto object-contain ${loadedPreviewId === previewReceipt.id ? "block" : "hidden"}`}
+                  onLoad={() => markPreviewLoaded(previewReceipt.id)}
+                  className={`max-h-[90vh] max-w-[95vw] w-auto h-auto object-contain ${loadedPreviewKeys.has(previewReceipt.id) ? "block" : "hidden"}`}
                 />
               </>
             ) : (
@@ -1957,6 +2308,101 @@ export function ReviewEditor({
           </div>
         </div>
       )}
+
+      {mergeTargetId && (() => {
+        const targetIndex = receipts.findIndex((r) => r.id === mergeTargetId);
+        const others = receipts.filter((r) => r.id !== mergeTargetId && !reanalyzingIds.has(r.id));
+        const close = () => setMergeTargetId(null);
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-scrim p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="merge-modal-title"
+            onClick={close}
+          >
+            <div
+              className="flex max-h-[90vh] w-full max-w-md flex-col rounded-xl border border-line bg-surface p-6 shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2 id="merge-modal-title" className="mb-2 text-lg font-semibold text-ink">
+                Slå sammen kvitteringer
+              </h2>
+              <p className="mb-4 text-sm text-muted">
+                Velg kvitteringene som er deler av samme kvittering. Bildene legges etter bildene i kvittering {targetIndex + 1}, og kvitteringen leses på nytt.
+              </p>
+              <ul className="mb-6 min-h-0 space-y-1 overflow-auto">
+                {others.map((r) => {
+                  const n = receipts.findIndex((x) => x.id === r.id) + 1;
+                  const checked = mergeSelection.has(r.id);
+                  return (
+                    <li key={r.id}>
+                      <label
+                        htmlFor={`merge-${r.id}`}
+                        className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 text-sm hover:bg-raised"
+                      >
+                        <input
+                          type="checkbox"
+                          id={`merge-${r.id}`}
+                          checked={checked}
+                          onChange={(e) => setInSet(setMergeSelection, r.id, e.target.checked)}
+                          className="h-4 w-4 shrink-0 accent-primary"
+                        />
+                        <span className="w-5 shrink-0 text-muted">{n}</span>
+                        <span className="min-w-0 flex-1 truncate text-ink">
+                          {r.extractedSummary || r.originalFileName}
+                        </span>
+                        <span className="shrink-0 tabular-nums text-muted">
+                          {r.extractedTotalCents != null ? formatNok(r.extractedTotalCents) : "–"}
+                        </span>
+                      </label>
+                    </li>
+                  );
+                })}
+              </ul>
+              <div className="flex flex-wrap justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={close}
+                  className="rounded-md bg-secondary px-4 py-2 text-sm font-medium text-ink hover:bg-secondary-hover"
+                >
+                  Avbryt
+                </button>
+                <button
+                  type="button"
+                  disabled={mergeSelection.size === 0}
+                  onClick={() => {
+                    const sourceIds = receipts
+                      .filter((r) => mergeSelection.has(r.id) && r.id !== mergeTargetId)
+                      .map((r) => r.id);
+                    const target = mergeTargetId;
+                    close();
+                    void handleMerge(target, sourceIds);
+                  }}
+                  className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-fg hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Slå sammen
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      <input
+        ref={addPartInputRef}
+        type="file"
+        accept="image/*,image/heic,application/pdf"
+        multiple
+        className="hidden"
+        onChange={(e) => {
+          const target = addPartTargetRef.current;
+          const files = e.target.files;
+          if (target) void handleAddParts(target, files);
+          addPartTargetRef.current = null;
+          e.target.value = "";
+        }}
+      />
     </div>
     </>
   );

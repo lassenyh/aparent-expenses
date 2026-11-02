@@ -127,6 +127,7 @@ export async function DELETE(
       );
     }
 
+    const parts = await prisma.receiptPart.findMany({ where: { receiptId: id } });
     await prisma.receipt.delete({ where: { id } });
 
     // TODO: Delete blob from Vercel Blob when credentials allow server-side delete.
@@ -137,6 +138,10 @@ export async function DELETE(
       // Ignore blob delete errors (e.g. missing token or blob already gone)
     }
     await deleteReceiptPreview(id);
+    for (const part of parts) {
+      await del(part.blobUrl).catch(() => {});
+      await deleteReceiptPreview(`part-${part.id}`);
+    }
 
     return NextResponse.json({ ok: true });
   } catch (error) {
