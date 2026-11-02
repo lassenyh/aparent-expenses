@@ -62,7 +62,6 @@ export default async function PrintPreviewPage(props: PageProps) {
     amountCents: r.extractedTotalCents ?? 0,
     date: submission.workDate?.toISOString() ?? null,
     comment: r.comment ?? null,
-    merchant: r.merchant ?? null,
   }));
 
   const pdfTotals: ExpensePdfTotals = {
