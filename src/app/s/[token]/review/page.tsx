@@ -178,6 +178,8 @@ export default async function ReviewPage(props: PageProps) {
       commentFlags: r.commentFlags ?? null,
       dismissedCommentFlags: r.dismissedCommentFlags ?? null,
       merchant: r.merchant ?? null,
+      receiptDate: r.receiptDate ?? null,
+      contentHash: r.contentHash ?? null,
       parts: r.parts,
     })),
   };

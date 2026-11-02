@@ -6,6 +6,8 @@ import { upload } from "@vercel/blob/client";
 import { parseCommentFlags, type SmartFlag } from "@/lib/receipts/smartComment";
 import { REPAYMENT_ACCOUNT_NUMBER } from "@/lib/constants";
 import { currencyDisplay } from "@/lib/currencyDisplay";
+import { findDuplicates } from "@/lib/duplicates";
+import { isDuplicateKept, keepDuplicate } from "@/lib/duplicateKeep";
 
 const PREVIEW_STORAGE_KEY = "expense-preview";
 
@@ -28,6 +30,9 @@ type ReceiptRow = {
   dismissedCommentFlags: string | null;
   /** Shop or supplier read by the analysis; null for receipts analysed before it was stored. */
   merchant?: string | null;
+  /** Used to warn about possible duplicates within the claim. */
+  receiptDate?: string | null;
+  contentHash?: string | null;
   /** Extra images of the same receipt, after its own file, in order. */
   parts?: ReceiptPartRef[];
 };
@@ -50,6 +55,8 @@ function mapToReceiptRow(r: ReceiptRow): ReceiptRow {
     commentFlags: r.commentFlags ?? null,
     dismissedCommentFlags: r.dismissedCommentFlags ?? null,
     merchant: r.merchant ?? null,
+    receiptDate: r.receiptDate ?? null,
+    contentHash: r.contentHash ?? null,
     parts: r.parts ?? [],
   };
 }
@@ -709,6 +716,20 @@ export function ReviewEditor({
       }
     },
     []
+  );
+
+  const [keptDuplicateIds, setKeptDuplicateIds] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    // Read after mount so the server render and the first client render agree.
+    const timer = setTimeout(() =>
+      setKeptDuplicateIds(new Set(initialData.receipts.filter((r) => isDuplicateKept(r.id)).map((r) => r.id)))
+    );
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const duplicateOf = useMemo(
+    () => findDuplicates(receipts.filter((r) => !reanalyzingIds.has(r.id) && !keptDuplicateIds.has(r.id))),
+    [receipts, reanalyzingIds, keptDuplicateIds]
   );
 
   // Memoized lookup for comment flags per receipt to avoid repeated JSON parsing in render
@@ -1417,7 +1438,7 @@ export function ReviewEditor({
                               })
                             }
                             disabled={isSubmitted}
-                            className="min-w-0 flex-1 h-8 w-full rounded-md border border-transparent bg-transparent px-2 py-1 font-medium text-ink hover:border-control focus:border-ink focus:bg-field focus:outline-none"
+                            className="min-w-0 flex-1 h-8 w-full rounded-md border border-transparent bg-transparent px-2 py-1 font-medium text-ink hover:border-control focus:border-ink focus:bg-field focus:outline-none md:min-w-[16rem]"
                             placeholder="Beskrivelse"
                           />
                           {r.merchant && (
@@ -1427,6 +1448,28 @@ export function ReviewEditor({
                             >
                               <span className="sr-only">Butikk: </span>
                               <span className="truncate">{r.merchant}</span>
+                            </span>
+                          )}
+                          {duplicateOf.has(r.id) && !isSubmitted && (
+                            <span className="inline-flex shrink-0 flex-wrap items-center gap-x-2 self-start rounded-md border border-warn-line bg-warn-bg px-1.5 py-0.5 text-xs text-warn-ink md:self-center">
+                              Mulig duplikat av kvittering {receipts.findIndex((x) => x.id === duplicateOf.get(r.id)) + 1}
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteReceipt(r.id)}
+                                className="font-medium underline underline-offset-2"
+                              >
+                                Fjern
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  keepDuplicate(r.id);
+                                  setKeptDuplicateIds((prev) => new Set(prev).add(r.id));
+                                }}
+                                className="font-medium underline underline-offset-2"
+                              >
+                                Behold
+                              </button>
                             </span>
                           )}
                           {(r.parts?.length ?? 0) > 0 && (

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { get } from "@vercel/blob";
 import { prisma } from "@/lib/db";
 import { analyzeReceiptFiles } from "@/lib/analyzeReceipt";
@@ -113,6 +114,9 @@ export async function analyzeAndStoreReceipt(
       originalAmountCents: analyzed.originalAmountCents ?? null,
       commentFlags: stringifyCommentFlags(activeFlags),
       merchant: analyzed.merchant?.trim() || null,
+      receiptDate: analyzed.receiptDate,
+      // Fingerprint of the receipt's own file, used to spot the same file uploaded twice.
+      contentHash: createHash("sha256").update(files[0].bytes).digest("hex"),
     },
   });
   return { stored: saved.count > 0 };
