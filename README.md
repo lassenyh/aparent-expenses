@@ -1,6 +1,6 @@
 # Aparent utlegg
 
-Next.js 16.3 / React 19 / Prisma 7.10 / PostgreSQL. Kvitteringer lagres privat i Vercel Blob, analyseres med OpenAI og sendes som samlet PDF via Resend.
+Next.js 16.4 / React 19 / Prisma 7.10 / PostgreSQL. Kvitteringer lagres privat i Vercel Blob, analyseres med OpenAI og sendes som samlet PDF via Resend.
 
 ## Lokal kjøring
 
