@@ -6,6 +6,7 @@ import { upload } from "@vercel/blob/client";
 import { forEachConcurrent } from "@/lib/forEachConcurrent";
 import { mergeReceipts } from "@/lib/mergeReceipts";
 import { SubmissionInfoModal, type SubmissionInfo } from "./SubmissionInfoModal";
+import { UPLOAD_INTRO_SEEN_KEY, UploadIntro } from "./UploadIntro";
 
 type ReceiptItem = {
   id: string;
@@ -66,6 +67,30 @@ export function UploadStep({
   /** Receipts ticked for merging, in the order the user ticked them. */
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [busyIds, setBusyIds] = useState<Map<string, string>>(new Map());
+  const [showIntro, setShowIntro] = useState(false);
+
+  useEffect(() => {
+    // Shown once per device, before the first upload; «Slik fungerer det» opens it again.
+    let unseen = false;
+    try {
+      unseen = initialReceipts.length === 0 && !localStorage.getItem(UPLOAD_INTRO_SEEN_KEY);
+    } catch {
+      // Storage blocked: skip the intro rather than show it on every visit.
+    }
+    if (!unseen) return;
+    const timer = setTimeout(() => setShowIntro(true), 0);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const closeIntro = useCallback(() => {
+    setShowIntro(false);
+    try {
+      localStorage.setItem(UPLOAD_INTRO_SEEN_KEY, "1");
+    } catch {
+      // ignore
+    }
+  }, []);
 
   /**
    * Analyses one receipt in the background as soon as it is uploaded, so most of
@@ -396,6 +421,15 @@ export function UploadStep({
 
   return (
     <div className="w-full min-w-0 space-y-3">
+      <div className="-mt-2 flex justify-end">
+        <button
+          type="button"
+          onClick={() => setShowIntro(true)}
+          className="text-[13px] text-muted underline decoration-control underline-offset-[3px] hover:text-ink hover:decoration-current"
+        >
+          Slik fungerer det
+        </button>
+      </div>
       <section className="rounded-lg border border-line bg-surface" aria-label="Kvitteringer">
         <div className="px-5 pt-5">
           <div
@@ -444,6 +478,9 @@ export function UploadStep({
               Velg filer
             </button>
             <p className="text-[12.5px]">Bilder og PDF</p>
+            <p className="max-w-sm text-[12.5px]">
+              Lang kvittering? Ta flere bilder, kryss dem av og velg «Slå sammen til én kvittering».
+            </p>
           </div>
 
           {receipts.length === 0 && uploadingFiles.length === 0 ? (
@@ -620,6 +657,8 @@ export function UploadStep({
       </section>
 
       {error && <p className="text-sm text-neg">{error}</p>}
+
+      {showIntro && <UploadIntro onClose={closeIntro} />}
 
       {showInfoModal && (
         <SubmissionInfoModal
