@@ -1,6 +1,7 @@
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
+import { readBankDetails, bankProblem } from "@/lib/bankDetails";
 import { NextResponse } from "next/server";
 import { get } from "@vercel/blob";
 import { prisma } from "@/lib/db";
@@ -45,6 +46,7 @@ export async function POST(
       project?: string | null;
       workDate?: string | null;
       accountNumber?: string | null;
+      bankDetails?: unknown;
       productionCash?: number | null;
       receipts?: Array<{
         id: string;
@@ -78,6 +80,9 @@ export async function POST(
       );
     }
 
+    const bankDetails = body.bankDetails === undefined ? submission.bankDetails : body.bankDetails;
+    const problem = bankProblem(body.accountNumber ?? submission.accountNumber, bankDetails);
+    if (problem) return NextResponse.json({ error: problem }, { status: 400 });
     const productionCashCents =
       body.productionCash != null
         ? Math.round(Number(body.productionCash) * 100)
@@ -127,6 +132,7 @@ export async function POST(
         project: body.project ?? submission.project,
         workDate: workDate?.toISOString() ?? null,
         accountNumber: body.accountNumber ?? submission.accountNumber,
+        bankDetails: readBankDetails(bankDetails),
         productionCashCents,
       },
       receipts: mergedReceipts.map((r) => ({

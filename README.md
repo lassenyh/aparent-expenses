@@ -39,6 +39,14 @@ Legg forhåndsvisningens adresse med `/auth/callback` til under Supabase → Aut
 
 Opprett en ny Preview-deployment etter at Vercel-variablene er lagret. Eksisterende deployments får ikke nye variabler automatisk. Test `/admin/login` med e-post og passord, og kontroller at `/admin` viser prosjektlisten. Test også «Glemt passord?» og at lenken åpner skjemaet for nytt passord. Produksjonsmiljøet konfigureres separat.
 
+## Utenlandsk konto og språkvalg
+
+Nye utlegg starter med norsk konto og krever 11 sifre. «International account» viser IBAN, BIC/SWIFT, bankland og kontoeiers adresse, og bytter brukergrensesnittet til engelsk. Norsk/English kan velges på siden og i personinfo-popupen; valget huskes i nettleseren. Oversettelsen gjelder innsenderflyten; brukerens egne beskrivelser og prosjektdata oversettes ikke. PDF og regnskapsmeldingen beholder norske etiketter, med nøytral «Til utbetaling» / «Til tilbakebetaling».
+
+Utenlandsk konto krever et IBAN-land, gyldig IBAN med kontrollsiffer, BIC som passer banklandet, og full adresse. Beløp og oppgjør er fortsatt i NOK. Land uten IBAN støttes ikke av dette skjemaet. Opplysninger normaliseres og valideres også på serveren, og lagres i `Submission.bankDetails`. Norsk konto bruker fortsatt `accountNumber`. Bytte til norsk konto nullstiller utenlandske opplysninger når skjemaet lagres.
+
+Den additive migreringen `20261103100000_international_accounts` legger til ett valgfritt JSON-felt. Kjør den i riktig databaseskjema før den nye appversjonen brukes. Eksisterende utlegg og tidligere PDF-er endres ikke.
+
 ## Gjeldende brukerflyt
 
 Grensesnittet følger designretningen Hovedbok: nøytrale flater uten bakgrunnsbilder, lys og mørk modus etter systeminnstillingen, og gult bare på beløpet til utbetaling og på lastestolper. Fargene er definert som tokens i `src/app/globals.css`. Last opp bilag; hvert bilag analyseres i bakgrunnen så snart det er lastet opp. «Gå videre» åpner person- og prosjektinfo, og når den er fylt ut venter appen på analysene som gjenstår før gjennomgangen åpnes. Der vises infoen som et sammendrag med «Endre». En lang kvittering kan bestå av flere bilder: på opplastingen velges bildene og slås sammen (eller «Legg til bilde» på en rad), og i gjennomgangen ligger «Legg til bilde», «Slå sammen med …» og «Del opp» under «Flere valg». Bildene analyseres sammen og blir hver sin side i PDF-en. Migrasjonen `20261102120000_receipt_parts` er additiv og må kjøres før denne versjonen tas i bruk. Kontroller og korriger felter i den opprinnelige gjennomgangstabellen, forhåndsvis og bekreft innsending. Bekreftelsessiden viser en oppsummering av oppgjøret; videobakgrunnen er skjult, men filen ligger fortsatt i `public/`.

@@ -1,3 +1,4 @@
+import { readBankDetails } from "./bankDetails";
 import { getAdminSubmitterDefaults } from "@/lib/adminDefaults";
 import { isAdminSubmitterFlow } from "@/lib/adminSubmitterCookie";
 
@@ -11,6 +12,7 @@ export async function getInitialSubmissionInfo(submission: {
   project: string | null;
   workDate: Date | null;
   accountNumber: string | null;
+  bankDetails?: unknown;
   productionCash: number | null;
 }) {
   const adminDefaults = (await isAdminSubmitterFlow()) ? getAdminSubmitterDefaults() : null;
@@ -19,6 +21,7 @@ export async function getInitialSubmissionInfo(submission: {
     projectNumber: submission.projectNumber ?? "",
     project: submission.project ?? "",
     workDate: submission.workDate?.toISOString().slice(0, 10) ?? null,
+    bankDetails: readBankDetails(submission.bankDetails),
     accountNumber: submission.accountNumber ?? adminDefaults?.accountNumber ?? "",
     productionCash: submission.productionCash != null ? String(submission.productionCash) : "",
   };

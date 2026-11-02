@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { T } from "@/components/LanguageProvider";
 import {
   ExpensePdfLayout,
   type ExpensePdfSubmission,
@@ -35,14 +36,14 @@ export function PreviewPopup({ token }: { token: string }) {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-ground p-6">
         <p className="text-center text-muted">
-          Ingen forhåndsvisningsdata. Åpne forhåndsvisning fra gjennomgangssiden.
+          <T>{"Ingen forhåndsvisningsdata. Åpne forhåndsvisning fra gjennomgangssiden."}</T>
         </p>
         <button
           type="button"
           onClick={() => window.close()}
           className="h-9 rounded-md bg-secondary px-4 text-sm font-medium text-ink hover:bg-secondary-hover"
         >
-          Lukk vindu
+          <T>{"Lukk vindu"}</T>
         </button>
       </main>
     );
@@ -52,14 +53,14 @@ export function PreviewPopup({ token }: { token: string }) {
     <main className="min-h-screen bg-ground">
       <div className="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-line bg-surface px-4 py-2.5 md:px-5">
         <h1 className="text-sm font-medium text-ink">
-          Forhåndsvis av utleggsskjema
+          <T>{"Forhåndsvis av utleggsskjema"}</T>
         </h1>
         <button
           type="button"
           onClick={() => window.close()}
           className="h-9 rounded-md bg-secondary px-4 text-sm font-medium text-ink hover:bg-secondary-hover"
         >
-          Lukk
+          <T>{"Lukk"}</T>
         </button>
       </div>
       <div className="overflow-auto p-4">

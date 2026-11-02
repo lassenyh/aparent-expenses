@@ -1,3 +1,6 @@
+
+import { T } from "@/components/LanguageProvider";
+import { readBankDetails } from "@/lib/bankDetails";
 import { AppHeader } from "@/components/AppHeader";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
@@ -54,16 +57,12 @@ export default async function ReviewPage(props: PageProps) {
         <AppHeader />
         <div className="px-4 pb-12 pt-2 md:px-8 md:pt-6">
           <section className="mx-auto w-full max-w-[640px] rounded-lg border border-line bg-surface p-6">
-            <h1 className="text-2xl font-semibold tracking-[-0.02em] text-ink">Gjennomgang og innsending</h1>
-            <p className="mt-2 text-sm text-muted">
-              Last opp kvitteringer først og klikk «Opplast» for å gå videre.
-            </p>
+            <h1 className="text-2xl font-semibold tracking-[-0.02em] text-ink"><T>{"Gjennomgang og innsending"}</T></h1>
+            <p className="mt-2 text-sm text-muted"><T>{"Last opp kvitteringer først og klikk «Opplast» for å gå videre."}</T></p>
             <a
               href={`/s/${token}`}
               className="mt-4 inline-flex h-9 items-center rounded-md bg-secondary px-4 text-sm font-medium text-ink hover:bg-secondary-hover"
-            >
-              Tilbake til opplasting
-            </a>
+            ><T>{"Tilbake til opplasting"}</T></a>
           </section>
         </div>
       </main>
@@ -88,33 +87,30 @@ export default async function ReviewPage(props: PageProps) {
                 <p className="flex items-center gap-2 text-[13px] font-medium text-pos">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden>
                     <path fillRule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.857-9.809a.75.75 0 0 0-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 1 0-1.06 1.061l2.5 2.5a.75.75 0 0 0 1.137-.089l4-5.5Z" clipRule="evenodd" />
-                  </svg>
-                  Sendt inn {formatSentAt(sentAt)}
+                  </svg><T>{"Sendt inn "}</T>{formatSentAt(sentAt)}
                 </p>
               )}
               <div>
-                <h1 id="done-title" className="text-[28px] font-semibold tracking-[-0.02em] text-ink">
-                  Utlegget er sendt inn
-                </h1>
-                <p className="mt-1.5 text-sm text-muted">Vennligst last ned PDF for egen kopi.</p>
+                <h1 id="done-title" className="text-[28px] font-semibold tracking-[-0.02em] text-ink"><T>{"Utlegget er sendt inn"}</T></h1>
+                <p className="mt-1.5 text-sm text-muted"><T>{"Vennligst last ned PDF for egen kopi."}</T></p>
               </div>
               <dl className="grid gap-2 rounded-lg bg-ground p-4 text-sm">
                 {project && (
                   <div className="flex justify-between gap-3">
-                    <dt className="text-muted">Prosjekt</dt>
+                    <dt className="text-muted"><T>{"Prosjekt"}</T></dt>
                     <dd className="text-right text-ink">{project}</dd>
                   </div>
                 )}
                 <div className="flex justify-between gap-3">
-                  <dt className="text-muted">Bilag</dt>
+                  <dt className="text-muted"><T>{"Bilag"}</T></dt>
                   <dd className="text-ink">{submission.receipts.length}</dd>
                 </div>
                 <div className="flex justify-between gap-3">
-                  <dt className="text-muted">Total</dt>
+                  <dt className="text-muted"><T>{"Total"}</T></dt>
                   <dd className="text-ink">{formatNok(totalCents)}</dd>
                 </div>
                 <div className="flex justify-between gap-3">
-                  <dt className="text-muted">Produksjonskasse</dt>
+                  <dt className="text-muted"><T>{"Produksjonskasse"}</T></dt>
                   <dd className="text-ink">{formatNok(cashCents)}</dd>
                 </div>
                 <div className="flex items-baseline justify-between gap-3 border-t border-rule pt-2">
@@ -130,19 +126,14 @@ export default async function ReviewPage(props: PageProps) {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-fg hover:bg-primary-hover"
-                >
-                  Last ned PDF
-                </a>
+                ><T>{"Last ned PDF"}</T></a>
                 <a
                   href={newSubmissionHref}
                   className="inline-flex h-9 items-center rounded-md bg-secondary px-4 text-sm font-medium text-ink hover:bg-secondary-hover"
-                >
-                  Nytt oppgjør
-                </a>
+                ><T>{"Nytt oppgjør"}</T></a>
               </div>
             </section>
-            <p className="text-[13px] text-muted">
-              Har du spørsmål vedrørende utlegg, kan disse rettes til{" "}
+            <p className="text-[13px] text-muted"><T>{"Har du spørsmål vedrørende utlegg, kan disse rettes til"}</T>{" "}
               <a href="mailto:utlegg@aparent.tv" className="text-ink underline underline-offset-2">
                 utlegg@aparent.tv
               </a>
@@ -163,6 +154,7 @@ export default async function ReviewPage(props: PageProps) {
     project: submission.project,
     projectLocked: submission.projectId != null,
     workDate: submission.workDate?.toISOString() ?? null,
+    bankDetails: readBankDetails(submission.bankDetails),
     accountNumber: submission.accountNumber ?? adminDefaults?.accountNumber ?? null,
     productionCash: submission.productionCash,
     combinedPdfUrl: submission.combinedPdfUrl,
@@ -191,11 +183,9 @@ export default async function ReviewPage(props: PageProps) {
       <div className="px-4 pt-2 md:px-8 md:pt-4">
         <div className="mx-auto w-full max-w-6xl">
           <div className="mb-5">
-            <h1 className="text-2xl font-semibold tracking-[-0.02em] text-ink">Gjennomgang og innsending</h1>
+            <h1 className="text-2xl font-semibold tracking-[-0.02em] text-ink"><T>{"Gjennomgang og innsending"}</T></h1>
             {adminFlow && (
-              <p className="mt-1.5 inline-block rounded-full bg-pill px-2 py-px text-[12.5px] text-pill-ink">
-                Admin-modus (navn og konto forhåndsutfylt)
-              </p>
+              <p className="mt-1.5 inline-block rounded-full bg-pill px-2 py-px text-[12.5px] text-pill-ink"><T>{"Admin-modus (navn og konto forhåndsutfylt)"}</T></p>
             )}
           </div>
           <ReviewEditor initialData={initialData} token={token} />

@@ -1,3 +1,5 @@
+
+import { T } from "@/components/LanguageProvider";
 import { notFound } from "next/navigation";
 import { AppHeader } from "@/components/AppHeader";
 import { prisma } from "@/lib/db";
@@ -31,15 +33,13 @@ export default async function ProjectLinkPage({ params }: { params: Promise<{ co
           <div className="space-y-1">
             {open ? (
               <>
-                <p className="text-[13px] text-muted">Utlegg for</p>
+                <p className="text-[13px] text-muted"><T>{"Utlegg for"}</T></p>
                 <h1 className="text-2xl font-semibold tracking-[-0.02em] text-ink">{projectLabel(project)}</h1>
               </>
             ) : (
-              <h1 className="text-2xl font-semibold tracking-[-0.02em] text-ink">Send inn utlegg</h1>
+              <h1 className="text-2xl font-semibold tracking-[-0.02em] text-ink"><T>{"Send inn utlegg"}</T></h1>
             )}
-            <p className="pt-1 text-sm text-muted">
-              Det tar et par minutter, og vi fyller ut skjemaet for deg.
-              {open && " Prosjektet er allerede fylt ut."}
+            <p className="pt-1 text-sm text-muted"><T>{"Det tar et par minutter, og vi fyller ut skjemaet for deg."}</T>{open && " Prosjektet er allerede fylt ut."}
             </p>
           </div>
           <UploadSteps projectFilled={open} />

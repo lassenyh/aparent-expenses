@@ -1,0 +1,73 @@
+export type Language = "nb" | "en";
+export const english: Record<string, string> = {
+  "Til opplasting": "Back to upload",
+  "Flere valg": "More options", "Forhåndsvis av utleggsskjema": "Expense form preview", "Lukk vindu": "Close window",
+  "Ingen forhåndsvisningsdata. Åpne forhåndsvisning fra gjennomgangssiden.": "No preview data. Open the preview from the review page.",
+  "Person- og prosjektinfo": "Personal and project details",
+  "Mens du fyller ut, leser vi kvitteringene og fyller ut utleggsskjemaet automatisk.": "While you fill this in, we read your receipts and prepare the expense form automatically.",
+  "Navn": "Full name", "Fullt navn": "Full name", "Prosjekt": "Project", "Prosjektnummer": "Project number", "Prosjektnavn": "Project name", "Dato": "Date",
+  "Prosjektnummer finnes i email, eller fås av produsent.": "Find the project number in your email, or ask the producer.",
+  "Prod.penger / forskudd (NOK)": "Production funds / advance (NOK)", "Prod.penger / forskudd": "Production funds / advance",
+  "På neste side går du gjennom hver linje og sjekker at beløp og beskrivelse stemmer. Noen kjøp kan kreve en kort kommentar, for eksempel mat/drikke.": "On the next page, check that the amount and description on each line are correct. Some purchases, such as food or drinks, may need a short comment.",
+  "Tilbake til opplasting": "Back to upload", "Gå til gjennomgang": "Continue to review", "Går videre…": "Continuing…", "Venter på kvitteringene…": "Waiting for receipts…",
+  "Konto for utbetaling": "Bank details", "Norsk konto": "Norwegian account", "Kontonummer (11 sifre)": "Account number (11 digits)", "Kontonummer": "Account number",
+  "Bankland": "Bank country", "Velg land": "Select country", "Kontoeiers adresse": "Account holder’s address", "Gateadresse": "Street address", "Postnummer": "Postal code", "Poststed": "City", "Bostedsland": "Country of residence", "Postnummer og sted": "Postal code and city",
+  "Gjelder bankkontoer med IBAN.": "For bank accounts with an IBAN.",
+  "Du finner IBAN og BIC i nettbanken. Bruk navnet som er registrert på kontoen.": "Find your IBAN and BIC in your online banking. Use your full name as registered with your bank.",
+  "Velg et bankland som bruker IBAN": "Select a bank country that uses IBAN",
+  "IBAN er ugyldig eller stemmer ikke med banklandet": "The IBAN is invalid or does not match the bank country",
+  "BIC / SWIFT er ugyldig eller stemmer ikke med banklandet": "The BIC / SWIFT is invalid or does not match the bank country",
+  "Fyll inn kontoeiers fulle adresse og bostedsland": "Enter the account holder’s full address and country of residence",
+  "Bankopplysningene inneholder ugyldig tekst": "The bank details contain invalid text", "Ugyldige bankopplysninger": "Invalid bank details",
+  "Kontonummer er påkrevd": "Account number is required", "Kontonummer må være 11 sifre": "Account number must contain 11 digits",
+  "Navn er påkrevd": "Full name is required", "Prosjektnavn er påkrevd": "Project name is required",
+  "Navn er påkrevd.": "Full name is required.", "Prosjektnavn er påkrevd.": "Project name is required.", "Navn og prosjektnavn er påkrevd.": "Full name and project name are required.",
+  "Slik fungerer det": "How it works", "Dra filer hit eller": "Drag files here or", "Velg filer": "Choose files", "Bilder og PDF": "Images and PDF",
+  "Lang kvittering? Ta flere bilder, kryss dem av og velg «Slå sammen til én kvittering».": "Long receipt? Take several photos, select them and choose ‘Merge into one receipt’.",
+  "Ingen kvitteringer lagt til ennå.": "No receipts added yet.", "Avbryt": "Cancel", "Slå sammen til én kvittering": "Merge into one receipt", "Mulig duplikat av": "Possible duplicate of", "Behold": "Keep",
+  "Leser kvitteringen…": "Reading receipt…", "Lest": "Read", "Leses på nytt når du går videre": "Will be read again when you continue", "Legg til bilde": "Add image", "Del opp": "Split", "Åpne": "Open", "Slett": "Delete", "Laster opp…": "Uploading…", "Gå videre": "Continue",
+  "Slik sender du inn utlegg": "How to submit expenses", "Det tar et par minutter, og vi fyller ut skjemaet for deg.": "It takes a few minutes, and we fill in the form for you.", "Kom i gang": "Get started",
+  "Last opp kvitteringene.": "Upload your receipts.", "Bilder fra mobilen eller PDF. Vi leser dem med en gang.": "Photos from your phone or PDF files. We read them straight away.", "Lang kvittering?": "Long receipt?",
+  "Ta flere bilder. Kryss av bildene som hører sammen og velg «Slå sammen til én kvittering», eller trykk «Legg til bilde» på kvitteringen.": "Take several photos. Select the images belonging together and choose ‘Merge into one receipt’, or use ‘Add image’ on the receipt.",
+  "Kontroller og send inn.": "Check and submit.", "Fyll inn navn og kontonummer": "Enter your name and bank details", "Fyll inn person- og prosjektinfo": "Enter your personal and project details",
+  ", sjekk beløp og beskrivelse på hver kvittering, og send utlegget til produsenten.": ", check each receipt’s amount and description, and submit your expenses to the producer.",
+  "Slå sammen med …": "Merge with …", "Del opp i egne kvitteringer": "Split into separate receipts", "Utlegget er sendt inn. Vennligst last ned PDF for egen kopi.": "Your expenses have been submitted. Download the PDF to keep a copy.",
+  "Last ned PDF": "Download PDF", "Forhåndsvis / Skriv ut": "Preview / Print", "Har du spørsmål vedrørende utlegg, kan disse rettes til": "If you have questions about expenses, please contact", "Endre": "Edit", "Ikke oppgitt": "Not provided",
+  "Kvitteringer": "Receipts", "bilag. Kontroller beskrivelse og beløp mot hvert bilag før du sender inn.": "receipts. Check each description and amount against the receipt before submitting.",
+  "Beskrivelse": "Description", "Beløp": "Amount", "Handlinger": "Actions", "Laster opp og analyserer…": "Uploading and analysing…", "Laster opp og analyserer": "Uploading and analysing", "Mulig duplikat av kvittering": "Possible duplicate of receipt", "Fjern": "Remove",
+  "Mat/drikke": "Food/drinks", "Reisekostnader": "Travel expenses", "Legg til kommentar": "Add comment", "Dra filer hit for å legge til kvitteringer, eller bruk knappen.": "Drag files here to add receipts, or use the button.",
+  "Oppsummering": "Summary", "Total": "Total", "Produksjonskasse": "Production advance", "Forhåndsvis skjema": "Preview form", "Forhåndsvis": "Preview", "Mat og drikke": "Food and drinks",
+  "Det ser ut som du har lagt til en eller flere kvitteringer som inneholder mat eller drikke. I så fall må du legge til en kommentar på hva og hvem det er til.": "One or more receipts appear to include food or drinks. Add a comment explaining what was purchased and who it was for.",
+  "Eksempel på mat til opptak:": "Example of food for a shoot:", "Mat og drikke til crew og aktører": "Food and drinks for crew and cast", "Eksempel på annen mat:": "Example of other meals:", "Overtidsmat til [Ditt navn]": "Overtime meal for [your name]",
+  "Hvis kvitteringen ikke inneholder mat eller drikke så fjerner du bare kommentarfeltet eller mat/drikke-taggen.": "If the receipt does not include food or drinks, remove the comment field or the food/drinks tag.", "Lukk": "Close",
+  "Det ser ut som du har lagt til en eller flere kvitteringer som kan være reisekostnader (f.eks. parkering, bensin, taxi, kollektiv). Legg gjerne til en kort kommentar om formålet.": "One or more receipts may be travel expenses, such as parking, fuel, taxis or public transport. Add a short comment about the purpose of the trip.",
+  "Eksempel:": "Example:", "Reise til/fra opptak": "Travel to/from a shoot", "eller": "or", "Parkering under innspilling": "Parking during filming", "Hvis kvitteringen ikke er en reisekostnad, fjerner du taggen eller kommentarfeltet.": "If the receipt is not a travel expense, remove the tag or comment field.",
+  "Kvittering i": "Receipt in", "Du har lagt til en kvittering i": "You have added a receipt in", ". Skriv inn beløpet i NOK i feltet for beløp.": ". Enter the amount in NOK in the amount field.", "Beløpet i": "The amount in", "vises kun som referanse og blir ikke automatisk omregnet.": "is shown for reference only and is not converted automatically.",
+  "Siste sjekk før innsending": "Final check before submitting", "Gå gjennom punktene nedenfor før du sender inn utlegget.": "Check the following before submitting your expenses.", "Jeg har dobbeltsjekket at summer og beskrivelser stemmer": "I have double-checked the amounts and descriptions", "Jeg har fylt inn om jeg har mottatt produksjonskasse (forskudd) eller ikke": "I have entered whether I received a production advance",
+  "Kontonummer for tilbakebetaling": "Account for repayment", "Bekreft og send inn": "Confirm and submit", "Del": "Part", "av": "of", "Henter bilaget…": "Loading receipt…", "Slå sammen kvitteringer": "Merge receipts",
+  "Velg kvitteringene som er deler av samme kvittering. Bildene legges etter bildene i kvittering": "Select the receipts that belong together. The images will be appended to receipt", ", og kvitteringen leses på nytt.": ", and the receipt will be read again.", "Slå sammen": "Merge",
+  "Gjennomgang og innsending": "Review and submit", "Last opp kvitteringer først og klikk «Opplast» for å gå videre.": "Upload receipts first, then continue to review.", "Sendt inn": "Submitted", "Utlegget er sendt inn": "Your expenses have been submitted", "Vennligst last ned PDF for egen kopi.": "Download the PDF to keep a copy.", "Bilag": "Receipts", "Nytt oppgjør": "New expense claim", "Admin-modus (navn og konto forhåndsutfylt)": "Admin mode (name and account prefilled)",
+  "E-post ble ikke sendt": "The email was not sent", "Verifiser domenet på": "Verify the domain at", "og sett RESEND_FROM i Vercel (f.eks. Utlegg &lt;utlegg@aparent.tv&gt;).": "and configure the email sender in Vercel.",
+  "Last opp dine kvitteringer": "Upload your receipts", "Utleggsskjemaet fylles ut automatisk før det sendes til produsent.": "The expense form is filled in automatically before it is sent to the producer.", "Sørg for at beskrivelsen av kvitteringen matcher kjøpet før du sender inn.": "Make sure each receipt’s description matches the purchase before submitting.", "Utlegg for": "Expenses for", "Send inn utlegg": "Submit expenses",
+  "Steg 1 av 2": "Step 1 of 2", "Steg 2 av 2": "Step 2 of 2", "Aparent skylder deg": "Aparent owes you", "Du skylder Aparent": "You owe Aparent", "Til utbetaling (Aparent skylder deg)": "To be reimbursed (Aparent owes you)", "Tilbakebetaling (du skylder Aparent)": "Repayment (you owe Aparent)", "I balanse": "Settled",
+  "Sender inn…": "Submitting…", "Send inn": "Submit", "Alle kvitteringene er lest": "All receipts have been read", "Laster opp bilde…": "Uploading image…", "Slår sammen…": "Merging…", "Kunne ikke slå sammen kvitteringene": "Could not merge the receipts", "Last opp minst én kvittering først.": "Upload at least one receipt first.", "Velg én til for å slå sammen bildene til én kvittering": "Select one more image to merge into a single receipt", "Legg til minst én kvittering": "Add at least one receipt",
+  "Alle kvitteringer må ha beløp i NOK.": "All receipts must have an amount in NOK.", "Kvitteringer med mat/drikke eller reisekostnader må ha kommentar, eller fjern kommentarfeltet/taggen.": "Add a comment for food/drinks or travel expenses, or remove the comment field/tag.",
+  "Fjern tag": "Remove tag", "Fjern Mat/drikke": "Remove food/drinks", "Fjern Reisekostnader": "Remove travel expenses", "Vis bilag": "View receipt", "Fjern bilag": "Remove receipt", "Fjern kommentar": "Remove comment", "Legg til": "Add", "Forhåndsvis bilag": "Preview receipt",
+  "Forslag: Catering til filmarbeidere og statister *": "Suggestion: Catering for crew and extras *", "Forslag: Reise til/fra opptak, eller beskriv formål *": "Suggestion: Travel to/from a shoot, or describe the purpose *",
+  "Kunne ikke lagre person- og prosjektinfo": "Could not save personal and project details", "Analyse feilet": "Receipt analysis failed", "Innsending feilet": "Submission failed", "Opplasting feilet": "Upload failed", "Sletting feilet": "Could not delete the receipt",
+};
+
+export function translate(text: string, language: Language): string {
+  if (language !== "en") return text;
+  const trimmed = text.trim();
+  if (english[trimmed]) return text.replace(trimmed, english[trimmed]);
+  const patterns: Array<[RegExp, (...parts: string[]) => string]> = [
+    [/^Laster opp (\d+) filer?…$/, count => `Uploading ${count} ${count === "1" ? "file" : "files"}…`],
+    [/^Leser kvitteringene: (\d+) av (\d+) ferdig$/, (done, total) => `Reading receipts: ${done} of ${total} complete`],
+    [/^(\d+) kvittering(?:er)? leses på nytt når du går videre$/, count => `${count} ${count === "1" ? "receipt will" : "receipts will"} be read again when you continue`],
+    [/^(\d+) kvittering(?:er)?$/, count => `${count} ${count === "1" ? "receipt" : "receipts"}`],
+    [/^(\d+) valgt\. Bildene blir én kvittering, i den rekkefølgen du valgte dem\.$/, count => `${count} selected. Images will be merged in the order you selected them.`],
+  ];
+  for (const [pattern, format] of patterns) { const match = trimmed.match(pattern); if (match) return format(...match.slice(1)); }
+  return text;
+}

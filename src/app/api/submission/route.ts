@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { bankProblem, normalizeBankDetails, readBankDetails } from "@/lib/bankDetails";
+import { Prisma } from "@prisma/client";
 import { SubmissionStatus } from "@prisma/client";
 
 const ACCOUNT_NUMBER_LENGTH = 11;
@@ -20,6 +22,7 @@ export async function PATCH(request: Request) {
       workDate?: string | null;
       productionCash?: number | null;
       accountNumber?: string | null;
+      bankDetails?: unknown;
     };
 
     const { token, ...fields } = body;
@@ -29,7 +32,7 @@ export async function PATCH(request: Request) {
 
     const submission = await prisma.submission.findUnique({
       where: { accessToken: token },
-      select: { id: true, status: true, projectId: true },
+      select: { id: true, status: true, projectId: true, bankDetails: true, accountNumber: true },
     });
 
     // REVIEW is editable too: the info dialog can open when receipts are added from review.
@@ -40,14 +43,13 @@ export async function PATCH(request: Request) {
       );
     }
 
-    const accountNumber = sanitizeAccountNumber(fields.accountNumber);
-    if (fields.accountNumber != null && fields.accountNumber !== "" && !accountNumber) {
-      return NextResponse.json(
-        { error: "Kontonummer må være 11 sifre" },
-        { status: 400 }
-      );
+    const bankDetails = fields.bankDetails === undefined ? submission.bankDetails : fields.bankDetails;
+    const rawAccount = fields.accountNumber === undefined ? submission.accountNumber : fields.accountNumber;
+    if (fields.accountNumber !== undefined || fields.bankDetails !== undefined) {
+      const problem = bankProblem(rawAccount, bankDetails);
+      if (problem) return NextResponse.json({ error: problem }, { status: 400 });
     }
-
+    const accountNumber = bankDetails == null ? sanitizeAccountNumber(rawAccount) : null;
     const data: {
       name?: string | null;
       projectNumber?: string | null;
@@ -55,6 +57,7 @@ export async function PATCH(request: Request) {
       workDate?: Date | null;
       productionCash?: number | null;
       accountNumber?: string | null;
+      bankDetails?: Prisma.InputJsonValue | typeof Prisma.DbNull;
     } = {};
 
     if (fields.name !== undefined) data.name = fields.name ?? null;
@@ -67,7 +70,10 @@ export async function PATCH(request: Request) {
       data.workDate = fields.workDate ? new Date(fields.workDate) : null;
     }
     if (fields.productionCash !== undefined) data.productionCash = fields.productionCash ?? null;
-    if (fields.accountNumber !== undefined) data.accountNumber = accountNumber;
+    if (fields.accountNumber !== undefined || fields.bankDetails !== undefined) {
+      data.accountNumber = accountNumber;
+      data.bankDetails = bankDetails == null ? Prisma.DbNull : normalizeBankDetails(readBankDetails(bankDetails)!);
+    }
 
     const updated = await prisma.submission.update({
       where: { id: submission.id },
@@ -112,8 +118,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const accountNumber = sanitizeAccountNumber(submission.accountNumber);
-    const hasValidAccount = accountNumber !== null && accountNumber.length === ACCOUNT_NUMBER_LENGTH;
+    const accountError = bankProblem(submission.accountNumber, submission.bankDetails);
 
     if (!submission.name?.trim()) {
       return NextResponse.json(
@@ -133,9 +138,9 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
-    if (!hasValidAccount) {
+    if (accountError) {
       return NextResponse.json(
-        { error: "Kontonummer må være 11 sifre" },
+        { error: accountError },
         { status: 400 }
       );
     }

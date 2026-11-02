@@ -1,6 +1,8 @@
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
+import { bankProblem, normalizeBankDetails, readBankDetails } from "@/lib/bankDetails";
+import { Prisma } from "@prisma/client";
 import { NextResponse, after } from "next/server";
 import { get, put } from "@vercel/blob";
 import { prisma } from "@/lib/db";
@@ -78,6 +80,7 @@ export async function POST(
       project?: string | null;
       workDate?: string | null;
       accountNumber?: string | null;
+      bankDetails?: unknown;
       productionCash?: number | null;
       receipts?: Array<{
         id: string;
@@ -103,18 +106,11 @@ export async function POST(
       );
     }
 
-    const accountNumber = sanitizeAccountNumber(body.accountNumber);
-    if (!accountNumber) {
-      return NextResponse.json(
-        {
-          error:
-            body.accountNumber == null || String(body.accountNumber).trim() === ""
-              ? "Kontonummer er påkrevd"
-              : "Kontonummer må være 11 sifre",
-        },
-        { status: 400 }
-      );
-    }
+    const bankValue = body.bankDetails === undefined ? submission.bankDetails : body.bankDetails;
+    const bankDetails = bankValue == null ? null : normalizeBankDetails(readBankDetails(bankValue) ?? { bankCountry: "", iban: "", bic: "", addressLine: "", postalCode: "", city: "", addressCountry: "" });
+    const accountNumber = bankDetails ? null : sanitizeAccountNumber(body.accountNumber ?? submission.accountNumber);
+    const problem = bankProblem(body.accountNumber ?? submission.accountNumber, bankValue);
+    if (problem) return NextResponse.json({ error: problem }, { status: 400 });
 
     const productionCashCents =
       body.productionCash != null
@@ -156,7 +152,8 @@ export async function POST(
         workDate: body.workDate
           ? new Date(body.workDate)
           : submission.workDate,
-        accountNumber: accountNumber ?? submission.accountNumber,
+        accountNumber,
+        bankDetails: bankDetails ?? Prisma.DbNull,
         productionCash: Math.round(productionCashCents / 100),
       },
     });
@@ -191,6 +188,7 @@ export async function POST(
         project: updated.project,
         workDate: updated.workDate?.toISOString() ?? null,
         accountNumber: updated.accountNumber,
+        bankDetails: readBankDetails(updated.bankDetails),
         productionCashCents,
       },
       receipts: updated.receipts.map((r) => ({
@@ -271,9 +269,9 @@ export async function POST(
           const resend = new Resend(resendKey);
           const diffLabel =
             diffCents > 0
-              ? "Til utbetaling (Aparent skylder deg)"
+              ? "Til utbetaling"
               : diffCents < 0
-                ? "Tilbakebetaling (du skylder Aparent)"
+                ? "Til tilbakebetaling"
                 : "I balanse";
           const fromAddress =
             process.env.RESEND_FROM ?? "Utlegg <onboarding@resend.dev>";

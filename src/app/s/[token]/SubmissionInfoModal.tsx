@@ -1,6 +1,9 @@
 "use client";
+import { T, useLanguage, LanguageSwitch } from "@/components/LanguageProvider";
 
 import { useEffect, useRef, useState } from "react";
+import { BankFields } from "@/components/BankFields";
+import { bankProblem, type BankDetails } from "@/lib/bankDetails";
 
 export type SubmissionInfo = {
   name: string;
@@ -8,6 +11,7 @@ export type SubmissionInfo = {
   project: string;
   workDate: string;
   accountNumber: string;
+  bankDetails: BankDetails | null;
   productionCash: string;
 };
 
@@ -23,12 +27,6 @@ const inputClass =
 const okBorder = "border-control hover:border-control-hover focus:border-ink focus:ring-ink/10";
 const errBorder = "border-neg focus:border-neg focus:ring-neg/15";
 
-function accountProblem(value: string): string | null {
-  const digits = value.replace(/\D/g, "");
-  if (value.trim() === "") return null;
-  return digits.length === 11 ? null : "Kontonummer må være 11 sifre";
-}
-
 type FieldErrors = { name?: string; project?: string; accountNumber?: string };
 
 /** The same fields the review page requires before it submits. */
@@ -36,16 +34,17 @@ function requiredProblems(info: SubmissionInfo, projectLocked: boolean): FieldEr
   const errors: FieldErrors = {};
   if (!info.name.trim()) errors.name = "Navn er påkrevd";
   if (!projectLocked && !info.project.trim()) errors.project = "Prosjektnavn er påkrevd";
-  const account = info.accountNumber.trim() === "" ? "Kontonummer er påkrevd" : accountProblem(info.accountNumber);
+  const account = bankProblem(info.accountNumber, info.bankDetails);
   if (account) errors.accountNumber = account;
   return errors;
 }
 
 function FieldError({ id, message }: { id: string; message?: string }) {
+  const { t } = useLanguage();
   if (!message) return null;
   return (
     <p id={id} className="mt-1 text-[13px] text-neg">
-      {message}
+      {t(message)}
     </p>
   );
 }
@@ -73,6 +72,7 @@ export function SubmissionInfoModal({
   onContinue: (info: SubmissionInfo) => void;
   onClose: () => void;
 }) {
+  const { t, language } = useLanguage();
   const [info, setInfo] = useState<SubmissionInfo>(initialInfo);
   const [errors, setErrors] = useState<FieldErrors>({});
   const nameRef = useRef<HTMLInputElement>(null);
@@ -130,6 +130,7 @@ export function SubmissionInfoModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-scrim p-4"
+      lang={language}
       role="dialog"
       aria-modal="true"
       aria-labelledby="info-modal-title"
@@ -138,18 +139,17 @@ export function SubmissionInfoModal({
         onSubmit={handleSubmit}
         className="my-auto w-full max-w-lg space-y-5 rounded-xl border border-line bg-surface p-6 shadow-2xl"
       >
-        <div className="space-y-1">
-          <h2 id="info-modal-title" className="text-lg font-semibold tracking-[-0.01em] text-ink">
-            Person- og prosjektinfo
-          </h2>
-          <p className="text-sm leading-relaxed text-muted">
-            Mens du fyller ut, leser vi kvitteringene og fyller ut utleggsskjemaet automatisk.
-          </p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="space-y-1">
+          <h2 id="info-modal-title" className="text-lg font-semibold tracking-[-0.01em] text-ink"><T>{"Person- og prosjektinfo"}</T></h2>
+          <p className="text-sm leading-relaxed text-muted"><T>{"Mens du fyller ut, leser vi kvitteringene og fyller ut utleggsskjemaet automatisk."}</T></p>
+          </div>
+          <LanguageSwitch />
         </div>
 
         <div className="space-y-2" role="status" aria-live="polite">
           <div className="flex items-center justify-between gap-3 text-sm">
-            <span className="text-ink">{statusText}</span>
+            <span className="text-ink">{t(statusText)}</span>
             {progress.total > 0 && (
               <span className="shrink-0 tabular-nums text-muted">{percent} %</span>
             )}
@@ -164,8 +164,7 @@ export function SubmissionInfoModal({
 
         <div className="grid gap-4">
           <div>
-            <label htmlFor="info-name" className="mb-1.5 block text-[13px] text-muted">
-              Navn <span className="text-muted">*</span>
+            <label htmlFor="info-name" className="mb-1.5 block text-[13px] text-muted"><T>{"Navn "}</T><span className="text-muted">*</span>
             </label>
             <input
               ref={nameRef}
@@ -177,13 +176,13 @@ export function SubmissionInfoModal({
               disabled={continuing}
               {...errorProps("name")}
               className={`${inputClass} ${errors.name ? errBorder : okBorder}`}
-              placeholder="Fullt navn"
+              placeholder={t("Fullt navn")}
             />
             <FieldError id="info-name-error" message={errors.name} />
           </div>
           {projectLocked ? (
             <div>
-              <p className="mb-1.5 text-[13px] text-muted">Prosjekt</p>
+              <p className="mb-1.5 text-[13px] text-muted"><T>{"Prosjekt"}</T></p>
               <p className="flex min-h-9 items-center rounded-md border border-line bg-raised px-2.5 text-sm text-ink">
                 {[info.projectNumber.trim(), info.project.trim()].filter(Boolean).join(" – ")}
               </p>
@@ -191,12 +190,10 @@ export function SubmissionInfoModal({
           ) : (
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-[auto_1fr]">
               <div className="min-w-0">
-                <label htmlFor="info-projectNumber" className="mb-1.5 flex items-center gap-1.5 text-[13px] text-muted">
-                  Prosjektnummer
-                  <span className="group relative inline-flex">
+                <label htmlFor="info-projectNumber" className="mb-1.5 flex items-center gap-1.5 text-[13px] text-muted"><T>{"Prosjektnummer"}</T><span className="group relative inline-flex">
                     <span
                       className="inline-flex cursor-default text-faint hover:text-ink"
-                      aria-label="Prosjektnummer finnes i email, eller fås av produsent."
+                      aria-label={t("Prosjektnummer finnes i email, eller fås av produsent.")}
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden>
                         <path
@@ -206,9 +203,7 @@ export function SubmissionInfoModal({
                         />
                       </svg>
                     </span>
-                    <span className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 -translate-x-1/2 whitespace-nowrap rounded bg-ink px-2.5 py-1.5 text-xs text-ground opacity-0 shadow transition-opacity duration-150 group-hover:opacity-100">
-                      Prosjektnummer finnes i email, eller fås av produsent.
-                    </span>
+                    <span className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 -translate-x-1/2 whitespace-nowrap rounded bg-ink px-2.5 py-1.5 text-xs text-ground opacity-0 shadow transition-opacity duration-150 group-hover:opacity-100"><T>{"Prosjektnummer finnes i email, eller fås av produsent."}</T></span>
                   </span>
                 </label>
                 <input
@@ -220,12 +215,11 @@ export function SubmissionInfoModal({
                   onChange={set("projectNumber")}
                   disabled={continuing}
                   className={`${inputClass} ${okBorder} min-w-28 sm:min-w-32 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none`}
-                  placeholder="0"
+                  placeholder={t("0")}
                 />
               </div>
               <div className="min-w-0">
-                <label htmlFor="info-project" className="mb-1.5 block text-[13px] text-muted">
-                  Prosjektnavn <span className="text-muted">*</span>
+                <label htmlFor="info-project" className="mb-1.5 block text-[13px] text-muted"><T>{"Prosjektnavn "}</T><span className="text-muted">*</span>
                 </label>
                 <input
                   ref={projectRef}
@@ -237,7 +231,7 @@ export function SubmissionInfoModal({
                   disabled={continuing}
                   {...errorProps("project")}
                   className={`${inputClass} ${errors.project ? errBorder : okBorder}`}
-                  placeholder="Prosjektnavn"
+                  placeholder={t("Prosjektnavn")}
                 />
                 <FieldError id="info-project-error" message={errors.project} />
               </div>
@@ -245,9 +239,7 @@ export function SubmissionInfoModal({
           )}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label htmlFor="info-workDate" className="mb-1.5 block text-[13px] text-muted">
-                Dato
-              </label>
+              <label htmlFor="info-workDate" className="mb-1.5 block text-[13px] text-muted"><T>{"Dato"}</T></label>
               <input
                 ref={workDateRef}
                 id="info-workDate"
@@ -260,9 +252,7 @@ export function SubmissionInfoModal({
               />
             </div>
             <div>
-              <label htmlFor="info-productionCash" className="mb-1.5 block text-[13px] text-muted">
-                Prod.penger / forskudd (NOK)
-              </label>
+              <label htmlFor="info-productionCash" className="mb-1.5 block text-[13px] text-muted"><T>{"Prod.penger / forskudd (NOK)"}</T></label>
               <input
                 id="info-productionCash"
                 type="number"
@@ -272,41 +262,19 @@ export function SubmissionInfoModal({
                 onChange={set("productionCash")}
                 disabled={continuing}
                 className={`${inputClass} ${okBorder} [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none`}
-                placeholder="0"
+                placeholder={t("0")}
               />
             </div>
           </div>
-          <div>
-            <label htmlFor="info-accountNumber" className="mb-1.5 block text-[13px] text-muted">
-              Kontonummer (11 sifre) <span className="text-muted">*</span>
-            </label>
-            <input
-              ref={accountRef}
-              id="info-accountNumber"
-              type="text"
-              inputMode="numeric"
-              autoComplete="off"
-              maxLength={11}
-              value={info.accountNumber}
-              onChange={set("accountNumber")}
-              onBlur={() =>
-                setErrors((prev) => ({ ...prev, accountNumber: accountProblem(info.accountNumber) ?? undefined }))
-              }
-              disabled={continuing}
-              {...errorProps("accountNumber")}
-              className={`${inputClass} ${errors.accountNumber ? errBorder : okBorder}`}
-              placeholder="11 sifre"
-            />
-            <FieldError id="info-accountNumber-error" message={errors.accountNumber} />
-          </div>
+          <BankFields accountNumber={info.accountNumber} bankDetails={info.bankDetails}
+            onAccountChange={value => { setInfo(prev => ({...prev, accountNumber: value})); setErrors(prev => ({...prev, accountNumber: undefined})); }}
+            onBankChange={value => { setInfo(prev => ({...prev, bankDetails: value})); setErrors(prev => ({...prev, accountNumber: undefined})); }}
+            disabled={continuing} error={errors.accountNumber} accountRef={accountRef} />
         </div>
 
-        <p className="text-[12.5px] leading-relaxed text-muted">
-          På neste side går du gjennom hver linje og sjekker at beløp og beskrivelse stemmer. Noen kjøp kan kreve en
-          kort kommentar, for eksempel mat/drikke.
-        </p>
+        <p className="text-[12.5px] leading-relaxed text-muted"><T>{"På neste side går du gjennom hver linje og sjekker at beløp og beskrivelse stemmer. Noen kjøp kan kreve en kort kommentar, for eksempel mat/drikke."}</T></p>
 
-        {error && <p className="text-sm text-neg">{error}</p>}
+        {error && <p className="text-sm text-neg">{t(error)}</p>}
 
         <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
           <button
@@ -314,9 +282,7 @@ export function SubmissionInfoModal({
             onClick={onClose}
             disabled={continuing}
             className="h-9 rounded-md bg-secondary px-4 text-sm font-medium text-ink hover:bg-secondary-hover disabled:opacity-50"
-          >
-            Tilbake til opplasting
-          </button>
+          ><T>{"Tilbake til opplasting"}</T></button>
           <button
             type="submit"
             disabled={continuing}
@@ -329,7 +295,7 @@ export function SubmissionInfoModal({
                 aria-hidden
               />
             )}
-            {continuing ? (remaining > 0 ? "Venter på kvitteringene…" : "Går videre…") : "Gå til gjennomgang"}
+            {t(continuing ? (remaining > 0 ? "Venter på kvitteringene…" : "Går videre…") : "Gå til gjennomgang")}
           </button>
         </div>
       </form>

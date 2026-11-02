@@ -1,4 +1,5 @@
 "use client";
+import { T, useLanguage } from "@/components/LanguageProvider";
 
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
@@ -51,6 +52,7 @@ export function UploadStep({
   /** The claim came from a project link, so the project cannot be changed. */
   projectLocked: boolean;
 }) {
+  const { t } = useLanguage();
   const router = useRouter();
   const [receipts, setReceipts] = useState<ReceiptItem[]>(initialReceipts);
   const [uploadingFiles, setUploadingFiles] = useState<Array<{ id: string; fileName: string }>>([]);
@@ -401,7 +403,8 @@ export function UploadStep({
           projectNumber: values.projectNumber.trim() || null,
           project: values.project.trim() || null,
           workDate: values.workDate || null,
-          accountNumber: values.accountNumber.trim() || null,
+          accountNumber: values.bankDetails ? null : values.accountNumber.trim() || null,
+          bankDetails: values.bankDetails,
           productionCash: cash != null && Number.isFinite(cash) ? cash : null,
         }),
       });
@@ -457,11 +460,9 @@ export function UploadStep({
           type="button"
           onClick={() => setShowIntro(true)}
           className="text-[13px] text-muted underline decoration-control underline-offset-[3px] hover:text-ink hover:decoration-current"
-        >
-          Slik fungerer det
-        </button>
+        ><T>{"Slik fungerer det"}</T></button>
       </div>
-      <section className="rounded-lg border border-line bg-surface" aria-label="Kvitteringer">
+      <section className="rounded-lg border border-line bg-surface" aria-label={t("Kvitteringer")}>
         <div className="px-5 pt-5">
           <div
             onDrop={handleDrop}
@@ -478,7 +479,7 @@ export function UploadStep({
               <path d="M9.25 13.25a.75.75 0 0 0 1.5 0V4.636l2.955 3.129a.75.75 0 0 0 1.09-1.03l-4.25-4.5a.75.75 0 0 0-1.09 0l-4.25 4.5a.75.75 0 1 0 1.09 1.03L9.25 4.636v8.614Z" />
               <path d="M3.5 12.75a.75.75 0 0 0-1.5 0v2.5A2.75 2.75 0 0 0 4.75 18h10.5A2.75 2.75 0 0 0 18 15.25v-2.5a.75.75 0 0 0-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5Z" />
             </svg>
-            <p className="text-sm">Dra filer hit eller</p>
+            <p className="text-sm"><T>{"Dra filer hit eller"}</T></p>
             <input
               ref={fileInputRef}
               type="file"
@@ -505,19 +506,13 @@ export function UploadStep({
               type="button"
               onClick={() => fileInputRef.current?.click()}
               className="h-9 rounded-md bg-secondary px-4 text-sm font-medium text-ink hover:bg-secondary-hover"
-            >
-              Velg filer
-            </button>
-            <p className="text-[12.5px]">Bilder og PDF</p>
-            <p className="max-w-sm text-[12.5px]">
-              Lang kvittering? Ta flere bilder, kryss dem av og velg «Slå sammen til én kvittering».
-            </p>
+            ><T>{"Velg filer"}</T></button>
+            <p className="text-[12.5px]"><T>{"Bilder og PDF"}</T></p>
+            <p className="max-w-sm text-[12.5px]"><T>{"Lang kvittering? Ta flere bilder, kryss dem av og velg «Slå sammen til én kvittering»."}</T></p>
           </div>
 
           {receipts.length === 0 && uploadingFiles.length === 0 ? (
-            <p className="py-4 text-center text-sm text-muted">
-              Ingen kvitteringer lagt til ennå.
-            </p>
+            <p className="py-4 text-center text-sm text-muted"><T>{"Ingen kvitteringer lagt til ennå."}</T></p>
           ) : (
             <>
             {selectedIds.length > 0 && (
@@ -526,26 +521,22 @@ export function UploadStep({
                 role="status"
               >
                 <span className="text-ink">
-                  {selectedIds.length < 2
+                  {t(selectedIds.length < 2
                     ? "Velg én til for å slå sammen bildene til én kvittering"
-                    : `${selectedIds.length} valgt. Bildene blir én kvittering, i den rekkefølgen du valgte dem.`}
+                    : `${selectedIds.length} valgt. Bildene blir én kvittering, i den rekkefølgen du valgte dem.`)}
                 </span>
                 <span className="flex gap-2">
                   <button
                     type="button"
                     onClick={() => setSelectedIds([])}
                     className="h-8 rounded-md px-3 text-muted hover:text-ink"
-                  >
-                    Avbryt
-                  </button>
+                  ><T>{"Avbryt"}</T></button>
                   <button
                     type="button"
                     onClick={handleMergeSelected}
                     disabled={selectedIds.length < 2}
                     className="h-8 rounded-md bg-primary px-3 font-medium text-primary-fg hover:bg-primary-hover disabled:opacity-45"
-                  >
-                    Slå sammen til én kvittering
-                  </button>
+                  ><T>{"Slå sammen til én kvittering"}</T></button>
                 </span>
               </div>
             )}
@@ -563,7 +554,7 @@ export function UploadStep({
                       checked={selectedIds.includes(r.id)}
                       onChange={() => toggleSelected(r.id)}
                       disabled={!!busy}
-                      aria-label={`Velg ${r.originalFileName} for å slå sammen`}
+                      aria-label={t(`Velg ${r.originalFileName} for å slå sammen`)}
                       className="h-4 w-4 accent-primary"
                     />
                     <span
@@ -582,16 +573,15 @@ export function UploadStep({
                         {r.originalFileName}
                         {partCount > 0 && (
                           <span className="font-normal text-muted">
-                            {" "}+ {partCount} {partCount === 1 ? "bilde" : "bilder"}
+                            {t(" ")}<T>{"+ "}</T>{partCount} {t(partCount === 1 ? "bilde" : "bilder")}
                           </span>
                         )}
                       </p>
                       {busy ? (
                         <p className="text-[12.5px] text-muted">{busy}</p>
                       ) : duplicateOf.has(r.id) ? (
-                        <p className="text-[12.5px] text-warn-ink">
-                          Mulig duplikat av{" "}
-                          {receipts.find((x) => x.id === duplicateOf.get(r.id))?.originalFileName ?? "en annen kvittering"}.{" "}
+                        <p className="text-[12.5px] text-warn-ink"><T>{"Mulig duplikat av"}</T>{t(" ")}
+                          {receipts.find((x) => x.id === duplicateOf.get(r.id))?.originalFileName ?? "en annen kvittering"}<T>{"."}</T>{t(" ")}
                           <button
                             type="button"
                             onClick={() => {
@@ -599,20 +589,18 @@ export function UploadStep({
                               setKeptIds((prev) => new Set(prev).add(r.id));
                             }}
                             className="font-medium underline underline-offset-2 hover:text-ink"
-                          >
-                            Behold
-                          </button>
+                          ><T>{"Behold"}</T></button>
                         </p>
                       ) : (
                         <>
                           {analysis[r.id] === "pending" && (
-                            <p className="text-[12.5px] text-muted">Leser kvitteringen…</p>
+                            <p className="text-[12.5px] text-muted"><T>{"Leser kvitteringen…"}</T></p>
                           )}
                           {analysis[r.id] === "done" && (
-                            <p className="text-[12.5px] text-muted">Lest</p>
+                            <p className="text-[12.5px] text-muted"><T>{"Lest"}</T></p>
                           )}
                           {analysis[r.id] === "error" && (
-                            <p className="text-[12.5px] text-warn-ink">Leses på nytt når du går videre</p>
+                            <p className="text-[12.5px] text-warn-ink"><T>{"Leses på nytt når du går videre"}</T></p>
                           )}
                         </>
                       )}
@@ -626,35 +614,27 @@ export function UploadStep({
                         }}
                         disabled={!!busy}
                         className="inline-flex h-[30px] items-center rounded-md px-2.5 text-[13px] text-muted hover:bg-raised hover:text-ink disabled:opacity-50"
-                      >
-                        Legg til bilde
-                      </button>
+                      ><T>{"Legg til bilde"}</T></button>
                       {partCount > 0 && (
                         <button
                           type="button"
                           onClick={() => handleSplit(r.id)}
                           disabled={!!busy}
                           className="inline-flex h-[30px] items-center rounded-md px-2.5 text-[13px] text-muted hover:bg-raised hover:text-ink disabled:opacity-50"
-                        >
-                          Del opp
-                        </button>
+                        ><T>{"Del opp"}</T></button>
                       )}
                       <a
                         href={`/api/submissions/${encodeURIComponent(token)}/receipts/${encodeURIComponent(r.id)}/blob`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex h-[30px] items-center rounded-md px-2.5 text-[13px] text-muted hover:bg-raised hover:text-ink"
-                      >
-                        Åpne
-                      </a>
+                      ><T>{"Åpne"}</T></a>
                       <button
                         type="button"
                         onClick={() => handleDeleteReceipt(r.id)}
                         disabled={!!busy}
                         className="inline-flex h-[30px] items-center rounded-md px-2.5 text-[13px] text-muted hover:bg-neg-soft hover:text-neg disabled:opacity-50"
-                      >
-                        Slett
-                      </button>
+                      ><T>{"Slett"}</T></button>
                     </div>
                   </li>
                 );
@@ -664,7 +644,7 @@ export function UploadStep({
                   key={id}
                   className="grid grid-cols-[36px_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1.5 border-t border-rule py-2.5"
                   role="status"
-                  aria-label={`Laster opp ${fileName}`}
+                  aria-label={t(`Laster opp ${fileName}`)}
                 >
                   <span className="grid h-9 w-9 place-items-center rounded-md bg-raised text-muted" aria-hidden>
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
@@ -674,7 +654,7 @@ export function UploadStep({
                   <p className="min-w-0 truncate text-sm font-medium text-ink" title={fileName}>
                     {fileName}
                   </p>
-                  <span className="text-[12.5px] text-muted">Laster opp…</span>
+                  <span className="text-[12.5px] text-muted"><T>{"Laster opp…"}</T></span>
                   <div className="col-start-2 col-end-4 h-1 overflow-hidden rounded bg-raised">
                     <div className="h-full w-[34%] rounded bg-load animate-analyze-progress" aria-hidden />
                   </div>
@@ -687,22 +667,20 @@ export function UploadStep({
 
         <div className="mt-1 flex flex-wrap items-center justify-between gap-3 border-t border-rule px-5 py-3.5">
           <span className="text-[13px] text-muted">
-            {receipts.length > 0
+            {t(receipts.length > 0
               ? `${receipts.length} ${receipts.length === 1 ? "kvittering" : "kvitteringer"}`
-              : "Legg til minst én kvittering"}
+              : "Legg til minst én kvittering")}
           </span>
           <button
             type="button"
             onClick={handleOpenInfo}
             disabled={receipts.length === 0 && uploadingFiles.length === 0}
             className="h-9 rounded-md bg-primary px-4 text-sm font-medium text-primary-fg hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-45"
-          >
-            Gå videre
-          </button>
+          ><T>{"Gå videre"}</T></button>
         </div>
       </section>
 
-      {error && <p className="text-sm text-neg">{error}</p>}
+      {error && <p className="text-sm text-neg">{t(error)}</p>}
 
       {showIntro && <UploadIntro onClose={closeIntro} projectFilled={projectLocked} />}
 

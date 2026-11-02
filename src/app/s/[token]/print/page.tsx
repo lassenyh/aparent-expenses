@@ -1,3 +1,4 @@
+import { readBankDetails } from "@/lib/bankDetails";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import {
@@ -54,6 +55,7 @@ export default async function PrintPreviewPage(props: PageProps) {
     project: submission.project,
     workDate: submission.workDate?.toISOString() ?? null,
     accountNumber: submission.accountNumber,
+    bankDetails: readBankDetails(submission.bankDetails),
     productionCashCents,
   };
 

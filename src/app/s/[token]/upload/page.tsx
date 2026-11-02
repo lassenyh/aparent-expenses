@@ -1,3 +1,5 @@
+
+import { T } from "@/components/LanguageProvider";
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getInitialSubmissionInfo } from "@/lib/submissionInfo";
@@ -59,15 +61,9 @@ export default async function UploadOnlyPage(props: PageProps) {
       <div className="px-4 pb-12 pt-2 md:px-8 md:pt-6">
         <div className="mx-auto w-full max-w-[640px] min-w-0">
           <div className="mb-5">
-            <h1 className="text-2xl font-semibold tracking-[-0.02em] text-ink">
-              Last opp dine kvitteringer
-            </h1>
-            <p className="mt-1 text-sm text-muted">
-              Utleggsskjemaet fylles ut automatisk før det sendes til produsent.
-            </p>
-            <p className="mt-1 text-[13px] text-muted">
-              Sørg for at beskrivelsen av kvitteringen matcher kjøpet før du sender inn.
-            </p>
+            <h1 className="text-2xl font-semibold tracking-[-0.02em] text-ink"><T>{"Last opp dine kvitteringer"}</T></h1>
+            <p className="mt-1 text-sm text-muted"><T>{"Utleggsskjemaet fylles ut automatisk før det sendes til produsent."}</T></p>
+            <p className="mt-1 text-[13px] text-muted"><T>{"Sørg for at beskrivelsen av kvitteringen matcher kjøpet før du sender inn."}</T></p>
           </div>
           <UploadStep
             token={token}

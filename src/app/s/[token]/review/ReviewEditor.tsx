@@ -1,6 +1,9 @@
 "use client";
+import { T, useLanguage } from "@/components/LanguageProvider";
 
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
+import { BankFields } from "@/components/BankFields";
+import { bankProblem, bankPdfRows, type BankDetails } from "@/lib/bankDetails";
 import { useRouter } from "next/navigation";
 import { upload } from "@vercel/blob/client";
 import { parseCommentFlags, type SmartFlag } from "@/lib/receipts/smartComment";
@@ -70,6 +73,7 @@ type InitialData = {
   projectLocked: boolean;
   workDate: string | null;
   accountNumber: string | null;
+  bankDetails: BankDetails | null;
   productionCash: number | null;
   combinedPdfUrl: string | null;
   receipts: ReceiptRow[];
@@ -98,6 +102,8 @@ export function ReviewEditor({
   initialData: InitialData;
   token: string;
 }) {
+  const { t, language } = useLanguage();
+  const [bankDetails, setBankDetails] = useState<BankDetails | null>(initialData.bankDetails);
   const [name, setName] = useState(initialData.name ?? "");
   const [projectNumber, setProjectNumber] = useState(initialData.projectNumber ?? "");
   const [project, setProject] = useState(initialData.project ?? "");
@@ -149,7 +155,7 @@ export function ReviewEditor({
       !(
         initialData.name?.trim() &&
         initialData.project?.trim() &&
-        (initialData.accountNumber ?? "").replace(/\D/g, "").length === 11
+        !bankProblem(initialData.accountNumber, initialData.bankDetails)
       )
   );
   const [commentExpandedIds, setCommentExpandedIds] = useState<Set<string>>(
@@ -599,8 +605,8 @@ export function ReviewEditor({
           onClick={() => setOpenMenuId(open ? null : r.id)}
           disabled={reanalyzingIds.has(r.id)}
           className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-control bg-surface text-muted hover:border-control-hover hover:text-ink focus:border-ink focus:outline-none disabled:opacity-50"
-          title="Flere valg"
-          aria-label="Flere valg"
+          title={t("Flere valg")}
+          aria-label={t("Flere valg")}
           aria-haspopup="menu"
           aria-expanded={open}
         >
@@ -611,7 +617,7 @@ export function ReviewEditor({
         {open && (
           <div
             role="menu"
-            aria-label="Flere valg"
+            aria-label={t("Flere valg")}
             className="absolute right-0 top-9 z-30 min-w-[12rem] overflow-hidden rounded-md border border-line bg-surface py-1 shadow-lg"
           >
             <button
@@ -624,9 +630,7 @@ export function ReviewEditor({
                 addPartTargetRef.current = r.id;
                 addPartInputRef.current?.click();
               }}
-            >
-              Legg til bilde
-            </button>
+            ><T>{"Legg til bilde"}</T></button>
             {receipts.length > 1 && (
               <button
                 type="button"
@@ -637,9 +641,7 @@ export function ReviewEditor({
                   setMergeSelection(new Set());
                   setMergeTargetId(r.id);
                 }}
-              >
-                Slå sammen med …
-              </button>
+              ><T>{"Slå sammen med …"}</T></button>
             )}
             {(r.parts?.length ?? 0) > 0 && (
               <button
@@ -650,9 +652,7 @@ export function ReviewEditor({
                   setOpenMenuId(null);
                   void handleSplit(r.id);
                 }}
-              >
-                Del opp i egne kvitteringer
-              </button>
+              ><T>{"Del opp i egne kvitteringer"}</T></button>
             )}
           </div>
         )}
@@ -683,22 +683,10 @@ export function ReviewEditor({
   );
 
   const validateAccount = useCallback(() => {
-    const trimmed = accountNumber.trim();
-    const digits = accountNumber.replace(/\D/g, "");
-
-    if (trimmed === "") {
-      setAccountError("Kontonummer er påkrevd");
-      return false;
-    }
-
-    if (digits.length !== 11) {
-      setAccountError("Kontonummer må være 11 sifre");
-      return false;
-    }
-
-    setAccountError(null);
-    return true;
-  }, [accountNumber]);
+    const problem = bankProblem(accountNumber, bankDetails);
+    setAccountError(problem);
+    return !problem;
+  }, [accountNumber, bankDetails]);
 
   const scrollToFirstTopError = useCallback(
     (opts: { name?: boolean; project?: boolean; account?: boolean }) => {
@@ -874,7 +862,7 @@ export function ReviewEditor({
       return;
     }
     const digits = accountNumber.replace(/\D/g, "");
-    if (accountNumber.trim() && digits.length !== 11) {
+    if (!bankDetails && accountNumber.trim() && digits.length !== 11) {
       setAccountError("Kontonummer må være 11 sifre");
       return;
     }
@@ -915,7 +903,8 @@ export function ReviewEditor({
             projectNumber: projectNumber.trim() || null,
             project: project.trim() || null,
             workDate: workDate || null,
-            accountNumber: accountNumber.trim() || null,
+            accountNumber: bankDetails ? null : accountNumber.trim() || null,
+            bankDetails,
             productionCash: productionCash === "" ? null : Number(productionCash),
             receipts: receipts.map((r) => ({
               id: r.id,
@@ -986,7 +975,8 @@ export function ReviewEditor({
         projectNumber: projectNumber.trim() || null,
         project: project.trim() || null,
         workDate: workDate ? `${workDate}T12:00:00.000Z` : null,
-        accountNumber: accountNumber.trim() || null,
+        accountNumber: bankDetails ? null : accountNumber.trim() || null,
+            bankDetails,
         productionCashCents,
       },
       receipts: receipts.map((r) => ({
@@ -1027,7 +1017,7 @@ export function ReviewEditor({
           aria-hidden
         />
       )}
-      <span>{submitting ? "Sender inn…" : "Send inn"}</span>
+      <span>{t(submitting ? "Sender inn…" : "Send inn")}</span>
     </button>
   );
 
@@ -1040,9 +1030,7 @@ export function ReviewEditor({
             <p className="flex items-center gap-2 text-sm font-medium text-pos">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 shrink-0" aria-hidden>
                 <path fillRule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.857-9.809a.75.75 0 0 0-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 1 0-1.06 1.061l2.5 2.5a.75.75 0 0 0 1.137-.089l4-5.5Z" clipRule="evenodd" />
-              </svg>
-              Utlegget er sendt inn. Vennligst last ned PDF for egen kopi.
-            </p>
+              </svg><T>{"Utlegget er sendt inn. Vennligst last ned PDF for egen kopi."}</T></p>
             {displayPdfUrl && (
               <div className="flex flex-wrap gap-2">
                 <a
@@ -1050,22 +1038,17 @@ export function ReviewEditor({
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-fg hover:bg-primary-hover"
-                >
-                  Last ned PDF
-                </a>
+                ><T>{"Last ned PDF"}</T></a>
                 <a
                   href={`/s/${token}/print`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex h-9 items-center rounded-md bg-secondary px-4 text-sm font-medium text-ink hover:bg-secondary-hover"
-                >
-                  Forhåndsvis / Skriv ut
-                </a>
+                ><T>{"Forhåndsvis / Skriv ut"}</T></a>
               </div>
             )}
           </section>
-          <p className="text-sm text-muted">
-            Har du spørsmål vedrørende utlegg, kan disse rettes til{" "}
+          <p className="text-sm text-muted"><T>{"Har du spørsmål vedrørende utlegg, kan disse rettes til"}</T>{t(" ")}
             <a
               href="mailto:utlegg@aparent.tv"
               className="text-ink underline hover:opacity-80"
@@ -1081,55 +1064,49 @@ export function ReviewEditor({
       {!infoExpanded ? (
       <section className="rounded-lg border border-line bg-surface p-5">
         <div className="mb-4 flex items-center justify-between gap-3">
-          <h2 className="text-[15px] font-semibold text-ink">
-            Person- og prosjektinfo
-          </h2>
+          <h2 className="text-[15px] font-semibold text-ink"><T>{"Person- og prosjektinfo"}</T></h2>
           <button
             type="button"
             onClick={() => setInfoExpanded(true)}
             className="rounded-md bg-secondary px-3 py-1.5 text-sm font-medium text-ink hover:bg-secondary-hover"
-          >
-            Endre
-          </button>
+          ><T>{"Endre"}</T></button>
         </div>
         <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
           <div>
-            <dt className="text-muted">Navn</dt>
+            <dt className="text-muted"><T>{"Navn"}</T></dt>
             <dd className="text-ink">{name}</dd>
           </div>
           <div>
-            <dt className="text-muted">Kontonummer</dt>
-            <dd className="text-ink tabular-nums">{accountNumber}</dd>
+            <dt className="text-muted">{t(bankDetails ? "IBAN" : "Kontonummer")}</dt>
+            <dd className="text-ink tabular-nums">{bankDetails?.iban || accountNumber}</dd>
           </div>
           <div>
-            <dt className="text-muted">Prosjekt</dt>
+            <dt className="text-muted"><T>{"Prosjekt"}</T></dt>
             <dd className="text-ink">
               {[projectNumber.trim(), project.trim()].filter(Boolean).join(" – ")}
             </dd>
           </div>
           <div>
-            <dt className="text-muted">Dato</dt>
+            <dt className="text-muted"><T>{"Dato"}</T></dt>
             <dd className="text-ink tabular-nums">
-              {workDate ? workDate.split("-").reverse().join(".") : "Ikke oppgitt"}
+              {workDate ? workDate.split("-").reverse().join(".") : t("Ikke oppgitt")}
             </dd>
           </div>
           <div>
-            <dt className="text-muted">Prod.penger / forskudd</dt>
+            <dt className="text-muted"><T>{"Prod.penger / forskudd"}</T></dt>
             <dd className="text-ink tabular-nums">
-              {productionCash.trim() === "" ? "Ikke oppgitt" : formatNok(productionCashCents)}
+              {productionCash.trim() === "" ? t("Ikke oppgitt") : formatNok(productionCashCents)}
             </dd>
           </div>
+          {bankDetails && bankPdfRows(bankDetails).filter(([label]) => label !== "IBAN").map(([label, value]) => <div key={label}><dt className="text-muted">{t(label)}</dt><dd className="break-words text-ink">{label === "Bankland" || label === "Bostedsland" ? new Intl.DisplayNames([language], {type: "region"}).of(label === "Bankland" ? bankDetails.bankCountry : bankDetails.addressCountry) : value}</dd></div>)}
         </dl>
       </section>
       ) : (
       <section className="rounded-lg border border-line bg-surface p-5">
-        <h2 className="mb-4 text-[15px] font-semibold text-ink">
-          Person- og prosjektinfo
-        </h2>
+        <h2 className="mb-4 text-[15px] font-semibold text-ink"><T>{"Person- og prosjektinfo"}</T></h2>
         <div className="grid grid-cols-12 gap-x-3 gap-y-4">
           <div className="col-span-12 sm:col-span-6">
-            <label htmlFor="personinfo-name" className="block text-sm text-muted mb-1">
-              Navn <span className="text-muted">*</span>
+            <label htmlFor="personinfo-name" className="block text-sm text-muted mb-1"><T>{"Navn "}</T><span className="text-muted">*</span>
             </label>
             <input
               ref={nameInputRef}
@@ -1145,107 +1122,33 @@ export function ReviewEditor({
                   ? "border-neg focus:border-neg focus:ring-neg/15"
                   : "border-control focus:border-ink focus:ring-ink/10"
               }`}
-              placeholder="Fullt navn"
+              placeholder={t("Fullt navn")}
             />
           </div>
-          <div className="col-span-12 sm:col-span-6">
-            <label htmlFor="personinfo-accountNumber" className="block text-sm text-muted mb-1">
-              Kontonummer (11 sifre) <span className="text-muted">*</span>
-            </label>
-            <input
-              ref={accountInputRef}
-              id="personinfo-accountNumber"
-              name="accountNumber"
-              type="text"
-              inputMode="numeric"
-              autoComplete="off"
-              value={accountNumber}
-              onChange={(e) => {
-                setAccountNumber(e.target.value);
-                setAccountError(null);
-              }}
-              onBlur={validateAccount}
-              disabled={isSubmitted}
-              className={`w-full h-9 rounded-md border bg-field px-3 text-ink placeholder-faint focus:outline-none focus:ring-2 disabled:opacity-60 ${
-                accountError
-                  ? "border-neg focus:border-neg focus:ring-neg/15"
-                  : "border-control focus:border-ink focus:ring-ink/10"
-              }`}
-              placeholder="11 sifre"
-              maxLength={11}
-            />
+          <div className="col-span-12">
+            <BankFields accountNumber={accountNumber} bankDetails={bankDetails}
+              onAccountChange={setAccountNumber} onBankChange={setBankDetails}
+              disabled={isSubmitted} error={accountError} accountRef={accountInputRef} />
           </div>
           {initialData.projectLocked ? (
-            <div className="col-span-12 min-w-0 sm:col-span-9">
-              <p className="mb-1 text-sm text-muted">Prosjekt</p>
-              <p className="flex h-9 items-center truncate rounded-md border border-line bg-raised px-3 text-ink">
-                {[projectNumber.trim(), project.trim()].filter(Boolean).join(" – ")}
-              </p>
+            <div className="col-span-12 min-w-0">
+              <p className="mb-1 text-sm text-muted"><T>{"Prosjekt"}</T></p>
+              <p className="rounded-md border border-line bg-raised px-3 py-2 text-ink">{[projectNumber.trim(), project.trim()].filter(Boolean).join(" – ")}</p>
             </div>
-          ) : (
-            <div className="contents">
-              <div className="col-span-12 min-w-0 sm:col-span-3">
-                <label htmlFor="personinfo-projectNumber" className="mb-1 flex items-center gap-1.5 text-sm text-muted">
-                  Prosjektnummer
-                  <span className="group relative inline-flex">
-                    <span className="inline-flex cursor-default text-muted hover:text-ink" aria-label="Prosjektnummer finnes i email, eller fås av produsent.">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                        className="h-4 w-4"
-                        aria-hidden
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-7-4a1 1 0 0 1 2 0v1a1 1 0 0 1-2 0V6ZM9 9a.75.75 0 0 0 0 1.5h.253a.25.25 0 0 1 .244.304l-.459 2.066A1.75 1.75 0 0 0 10.747 15H11a.75.75 0 0 0 0-1.5h-.253a.25.25 0 0 1-.244-.304l.459-2.066A1.75 1.75 0 0 0 9.253 9H9Z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    </span>
-                    <span className="pointer-events-none absolute left-1/2 bottom-full z-10 mb-1 -translate-x-1/2 whitespace-nowrap rounded bg-secondary px-2.5 py-1.5 text-xs text-ink opacity-0 shadow transition-opacity duration-150 group-hover:opacity-100">
-                      Prosjektnummer finnes i email, eller fås av produsent.
-                    </span>
-                  </span>
-                </label>
-                <input
-                  id="personinfo-projectNumber"
-                  name="projectNumber"
-                  type="number"
-                  inputMode="numeric"
-                  autoComplete="off"
-                  value={projectNumber}
-                  onChange={(e) => setProjectNumber(e.target.value)}
-                  disabled={isSubmitted}
-                  className="min-w-28 w-full h-9 rounded-md border border-control bg-field px-3 text-ink placeholder-faint focus:border-ink focus:outline-none focus:ring-2 focus:ring-ink/10 disabled:opacity-60 sm:min-w-32 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                  placeholder="0"
-                />
-              </div>
-              <div className="col-span-12 min-w-0 sm:col-span-6">
-                <label className="block text-sm text-muted mb-1">
-                  Prosjektnavn <span className="text-muted">*</span>
-                </label>
-                <input
-                  ref={projectInputRef}
-                  id="personinfo-project"
-                  name="project"
-                  type="text"
-                  autoComplete="off"
-                  value={project}
-                  onChange={(e) => setProject(e.target.value)}
-                  disabled={isSubmitted}
-                  className={`w-full h-9 rounded-md border bg-field px-3 text-ink placeholder-faint focus:outline-none focus:ring-2 disabled:opacity-60 ${
-                    showFieldErrors && !project.trim()
-                      ? "border-neg focus:border-neg focus:ring-neg/15"
-                      : "border-control focus:border-ink focus:ring-ink/10"
-                  }`}
-                  placeholder="Prosjektnavn"
-                />
-              </div>
+          ) : <>
+            <div className="col-span-12 sm:col-span-4">
+              <label htmlFor="personinfo-projectNumber" className="mb-1 block text-sm text-muted"><T>{"Prosjektnummer"}</T></label>
+              <input id="personinfo-projectNumber" value={projectNumber} onChange={event => setProjectNumber(event.target.value)} disabled={isSubmitted}
+                className="h-9 w-full rounded-md border border-control bg-field px-3 text-ink" />
             </div>
-          )}
+            <div className="col-span-12 sm:col-span-8">
+              <label htmlFor="personinfo-project" className="mb-1 block text-sm text-muted"><T>{"Prosjektnavn"}</T> *</label>
+              <input ref={projectInputRef} id="personinfo-project" value={project} onChange={event => setProject(event.target.value)} disabled={isSubmitted}
+                className="h-9 w-full rounded-md border border-control bg-field px-3 text-ink" />
+            </div>
+          </>}
           <div className="col-span-12 sm:col-span-3">
-            <label htmlFor="personinfo-workDate" className="block text-sm text-muted mb-1">Dato</label>
+            <label htmlFor="personinfo-workDate" className="block text-sm text-muted mb-1"><T>{"Dato"}</T></label>
             <input
               ref={workDateInputRef}
               id="personinfo-workDate"
@@ -1260,9 +1163,7 @@ export function ReviewEditor({
             />
           </div>
           <div className="col-span-12 sm:col-span-6">
-            <label htmlFor="personinfo-productionCash" className="block text-sm text-muted mb-1">
-              Prod.penger / forskudd (NOK)
-            </label>
+            <label htmlFor="personinfo-productionCash" className="block text-sm text-muted mb-1"><T>{"Prod.penger / forskudd (NOK)"}</T></label>
             <input
               id="personinfo-productionCash"
               name="productionCash"
@@ -1273,7 +1174,7 @@ export function ReviewEditor({
               onChange={(e) => setProductionCash(e.target.value)}
               disabled={isSubmitted}
               className="w-full h-9 rounded-md border border-control bg-field px-3 text-ink placeholder-faint focus:border-ink focus:outline-none focus:ring-2 focus:ring-ink/10 disabled:opacity-60 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-              placeholder="0"
+              placeholder={t("0")}
             />
           </div>
         </div>
@@ -1323,18 +1224,17 @@ export function ReviewEditor({
         }
       >
         <div className="mb-4">
-          <h2 className="text-[15px] font-semibold text-ink">Kvitteringer</h2>
+          <h2 className="text-[15px] font-semibold text-ink"><T>{"Kvitteringer"}</T></h2>
           <p className="mt-0.5 text-sm text-muted">
-            {receipts.length} bilag. Kontroller beskrivelse og beløp mot hvert bilag før du sender inn.
-          </p>
+            {receipts.length} {language === "en" ? (receipts.length === 1 ? "receipt. Check each description and amount against the receipt before submitting." : "receipts. Check each description and amount against the receipt before submitting.") : "bilag. Kontroller beskrivelse og beløp mot hvert bilag før du sender inn."}</p>
         </div>
         <div className="w-full text-sm">
           {/* Desktop: column headers (hidden on mobile) */}
           <div className="hidden text-xs text-muted md:grid md:grid-cols-[auto_1fr_auto_auto] md:gap-2 md:border-b md:border-rule md:pb-2 md:text-left">
-            <div className="w-6">#</div>
-            <div>Beskrivelse</div>
-            <div className="text-right w-28">Beløp</div>
-            <div className="w-[6.5rem] text-right"><span className="sr-only">Handlinger</span></div>
+            <div className="w-6"><T>{"#"}</T></div>
+            <div><T>{"Beskrivelse"}</T></div>
+            <div className="text-right w-28"><T>{"Beløp"}</T></div>
+            <div className="w-[6.5rem] text-right"><span className="sr-only"><T>{"Handlinger"}</T></span></div>
           </div>
           {receipts.flatMap((r, i) => {
                 const isPending =
@@ -1345,8 +1245,7 @@ export function ReviewEditor({
                     <div key={r.id} className="border-b border-rule py-3">
                       <div className="flex items-center gap-3">
                         <span className="text-muted text-sm shrink-0">
-                          {i + 1}.
-                        </span>
+                          {i + 1}<T>{"."}</T></span>
                         <div className="flex-1 min-w-0">
                           <div className="h-1.5 w-full overflow-hidden rounded-full bg-raised">
                             <div
@@ -1356,9 +1255,7 @@ export function ReviewEditor({
                             />
                           </div>
                         </div>
-                        <span className="text-xs text-muted shrink-0">
-                          Laster opp og analyserer…
-                        </span>
+                        <span className="text-xs text-muted shrink-0"><T>{"Laster opp og analyserer…"}</T></span>
                       </div>
                     </div>,
                   ];
@@ -1449,18 +1346,15 @@ export function ReviewEditor({
                             }
                             disabled={isSubmitted}
                             className="min-w-0 flex-1 h-8 w-full rounded-md border border-transparent bg-transparent px-2 py-1 font-medium text-ink hover:border-control focus:border-ink focus:bg-field focus:outline-none md:min-w-[16rem]"
-                            placeholder="Beskrivelse"
+                            placeholder={t("Beskrivelse")}
                           />
                           {duplicateOf.has(r.id) && !isSubmitted && (
-                            <span className="inline-flex shrink-0 flex-wrap items-center gap-x-2 self-start rounded-md border border-warn-line bg-warn-bg px-1.5 py-0.5 text-xs text-warn-ink md:self-center">
-                              Mulig duplikat av kvittering {receipts.findIndex((x) => x.id === duplicateOf.get(r.id)) + 1}
+                            <span className="inline-flex shrink-0 flex-wrap items-center gap-x-2 self-start rounded-md border border-warn-line bg-warn-bg px-1.5 py-0.5 text-xs text-warn-ink md:self-center"><T>{"Mulig duplikat av kvittering "}</T>{receipts.findIndex((x) => x.id === duplicateOf.get(r.id)) + 1}
                               <button
                                 type="button"
                                 onClick={() => handleDeleteReceipt(r.id)}
                                 className="font-medium underline underline-offset-2"
-                              >
-                                Fjern
-                              </button>
+                              ><T>{"Fjern"}</T></button>
                               <button
                                 type="button"
                                 onClick={() => {
@@ -1468,14 +1362,11 @@ export function ReviewEditor({
                                   setKeptDuplicateIds((prev) => new Set(prev).add(r.id));
                                 }}
                                 className="font-medium underline underline-offset-2"
-                              >
-                                Behold
-                              </button>
+                              ><T>{"Behold"}</T></button>
                             </span>
                           )}
                           {(r.parts?.length ?? 0) > 0 && (
-                            <span className="shrink-0 self-start text-xs text-muted md:self-center">
-                              +{r.parts!.length} {r.parts!.length === 1 ? "bilde" : "bilder"}
+                            <span className="shrink-0 self-start text-xs text-muted md:self-center"><T>{"+"}</T>{r.parts!.length} {t(r.parts!.length === 1 ? "bilde" : "bilder")}
                             </span>
                           )}
                           {r.originalAmountCents != null &&
@@ -1486,9 +1377,7 @@ export function ReviewEditor({
                               </span>
                             )}
                           {activeFlags.includes("MEAL") && (
-                            <span className="hidden md:inline-flex items-center gap-1 rounded-full bg-pill pl-2 pr-0.5 py-0.5 text-xs font-medium text-pill-ink">
-                              Mat/drikke
-                              {!isSubmitted && (
+                            <span className="hidden md:inline-flex items-center gap-1 rounded-full bg-pill pl-2 pr-0.5 py-0.5 text-xs font-medium text-pill-ink"><T>{"Mat/drikke"}</T>{!isSubmitted && (
                                 <button
                                   type="button"
                                   onClick={async () => {
@@ -1522,8 +1411,8 @@ export function ReviewEditor({
                                     }
                                   }}
                                   className="rounded-full p-0.5 text-faint hover:bg-control hover:text-ink"
-                                  title="Fjern tag"
-                                  aria-label="Fjern Mat/drikke"
+                                  title={t("Fjern tag")}
+                                  aria-label={t("Fjern Mat/drikke")}
                                 >
                                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5">
                                     <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-2.72 2.72a.75.75 0 1 0 1.06 1.06L10 11.06l2.72 2.72a.75.75 0 1 0 1.06-1.06L11.06 10l2.72-2.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 6.22Z" />
@@ -1533,9 +1422,7 @@ export function ReviewEditor({
                             </span>
                           )}
                           {activeFlags.includes("TRANSPORT") && (
-                            <span className="hidden md:inline-flex items-center gap-1 rounded-full bg-pill pl-2 pr-0.5 py-0.5 text-xs font-medium text-pill-ink">
-                              Reisekostnader
-                              {!isSubmitted && (
+                            <span className="hidden md:inline-flex items-center gap-1 rounded-full bg-pill pl-2 pr-0.5 py-0.5 text-xs font-medium text-pill-ink"><T>{"Reisekostnader"}</T>{!isSubmitted && (
                                 <button
                                   type="button"
                                   onClick={async () => {
@@ -1569,8 +1456,8 @@ export function ReviewEditor({
                                     }
                                   }}
                                   className="rounded-full p-0.5 text-faint hover:bg-control hover:text-ink"
-                                  title="Fjern tag"
-                                  aria-label="Fjern Reisekostnader"
+                                  title={t("Fjern tag")}
+                                  aria-label={t("Fjern Reisekostnader")}
                                 >
                                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5">
                                     <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-2.72 2.72a.75.75 0 1 0 1.06 1.06L10 11.06l2.72 2.72a.75.75 0 1 0 1.06-1.06L11.06 10l2.72-2.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 6.22Z" />
@@ -1592,9 +1479,7 @@ export function ReviewEditor({
                                 });
                               }}
                               className="hidden md:block mt-0.5 w-fit text-left text-xs text-muted underline decoration-control underline-offset-2 hover:text-ink"
-                            >
-                              Legg til kommentar
-                            </button>
+                            ><T>{"Legg til kommentar"}</T></button>
                           )}
                         </div>
                         {/* Desktop: amount in own grid cell */}
@@ -1608,7 +1493,7 @@ export function ReviewEditor({
                                 : "border-control focus:border-ink"
                             }`}
                           />
-                          <span className="text-xs text-muted shrink-0">NOK</span>
+                          <span className="text-xs text-muted shrink-0"><T>{"NOK"}</T></span>
                         </div>
                         {/* Desktop: preview + trash in grid column 4 */}
                         <div className="hidden md:flex h-8 items-center justify-end gap-1 shrink-0 md:col-start-4">
@@ -1618,8 +1503,8 @@ export function ReviewEditor({
                             onPointerEnter={() => prefetchPreview(r)}
                             onFocus={() => prefetchPreview(r)}
                             className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-control bg-surface text-muted hover:border-control-hover hover:text-ink focus:border-ink focus:outline-none"
-                            title="Vis bilag"
-                            aria-label="Vis bilag"
+                            title={t("Vis bilag")}
+                            aria-label={t("Vis bilag")}
                           >
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden>
                               <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l3.328 3.329a.75.75 0 1 1-1.06 1.06l-3.329-3.328A7 7 0 0 1 2 9Z" clipRule="evenodd" />
@@ -1631,8 +1516,8 @@ export function ReviewEditor({
                               onClick={() => handleDeleteReceipt(r.id)}
                               disabled={deletingId === r.id}
                               className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-control bg-surface text-muted hover:border-neg hover:bg-neg-soft hover:text-neg focus:border-neg focus:outline-none disabled:opacity-50"
-                              title="Fjern bilag"
-                              aria-label="Fjern bilag"
+                              title={t("Fjern bilag")}
+                              aria-label={t("Fjern bilag")}
                             >
                               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden>
                                 <path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.518.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 0-1.5.06l.3 7.5a.75.75 0 1 0 1.5-.06l-.3-7.5Z" clipRule="evenodd" />
@@ -1645,9 +1530,7 @@ export function ReviewEditor({
                       {/* Mobile only: Mat/drikke på egen linje under beskrivelse (gir mer plass til beløp + ikoner) */}
                       {activeFlags.includes("MEAL") && (
                         <div className="flex items-center gap-2 md:hidden pl-5">
-                          <span className="inline-flex items-center gap-1 rounded-full bg-pill pl-2 pr-0.5 py-0.5 text-xs font-medium text-pill-ink shrink-0">
-                            Mat/drikke
-                            {!isSubmitted && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-pill pl-2 pr-0.5 py-0.5 text-xs font-medium text-pill-ink shrink-0"><T>{"Mat/drikke"}</T>{!isSubmitted && (
                               <button
                                 type="button"
                                 onClick={async () => {
@@ -1681,8 +1564,8 @@ export function ReviewEditor({
                                   }
                                 }}
                                 className="rounded-full p-0.5 text-faint hover:bg-control hover:text-ink"
-                                title="Fjern tag"
-                                aria-label="Fjern Mat/drikke"
+                                title={t("Fjern tag")}
+                                aria-label={t("Fjern Mat/drikke")}
                               >
                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5">
                                   <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-2.72 2.72a.75.75 0 1 0 1.06 1.06L10 11.06l2.72 2.72a.75.75 0 1 0 1.06-1.06L11.06 10l2.72-2.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 6.22Z" />
@@ -1694,9 +1577,7 @@ export function ReviewEditor({
                       )}
                       {activeFlags.includes("TRANSPORT") && (
                         <div className="flex items-center gap-2 md:hidden pl-5">
-                          <span className="inline-flex items-center gap-1 rounded-full bg-pill pl-2 pr-0.5 py-0.5 text-xs font-medium text-pill-ink shrink-0">
-                            Reisekostnader
-                            {!isSubmitted && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-pill pl-2 pr-0.5 py-0.5 text-xs font-medium text-pill-ink shrink-0"><T>{"Reisekostnader"}</T>{!isSubmitted && (
                               <button
                                 type="button"
                                 onClick={async () => {
@@ -1730,8 +1611,8 @@ export function ReviewEditor({
                                   }
                                 }}
                                 className="rounded-full p-0.5 text-faint hover:bg-control hover:text-ink"
-                                title="Fjern tag"
-                                aria-label="Fjern Reisekostnader"
+                                title={t("Fjern tag")}
+                                aria-label={t("Fjern Reisekostnader")}
                               >
                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5">
                                   <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-2.72 2.72a.75.75 0 1 0 1.06 1.06L10 11.06l2.72 2.72a.75.75 0 1 0 1.06-1.06L11.06 10l2.72-2.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 6.22Z" />
@@ -1753,7 +1634,7 @@ export function ReviewEditor({
                                 : "border-control focus:border-ink"
                             }`}
                           />
-                          <span className="text-xs text-muted shrink-0">NOK</span>
+                          <span className="text-xs text-muted shrink-0"><T>{"NOK"}</T></span>
                         </div>
                         <div className="flex h-8 items-center gap-1 shrink-0 ml-auto">
                           <button
@@ -1762,8 +1643,8 @@ export function ReviewEditor({
                             onPointerEnter={() => prefetchPreview(r)}
                             onFocus={() => prefetchPreview(r)}
                             className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-control bg-surface text-muted hover:border-control-hover hover:text-ink focus:border-ink focus:outline-none"
-                            title="Vis bilag"
-                            aria-label="Vis bilag"
+                            title={t("Vis bilag")}
+                            aria-label={t("Vis bilag")}
                           >
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden>
                               <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l3.328 3.329a.75.75 0 1 1-1.06 1.06l-3.329-3.328A7 7 0 0 1 2 9Z" clipRule="evenodd" />
@@ -1775,8 +1656,8 @@ export function ReviewEditor({
                               onClick={() => handleDeleteReceipt(r.id)}
                               disabled={deletingId === r.id}
                               className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-control bg-surface text-muted hover:border-neg hover:bg-neg-soft hover:text-neg focus:border-neg focus:outline-none disabled:opacity-50"
-                              title="Fjern bilag"
-                              aria-label="Fjern bilag"
+                              title={t("Fjern bilag")}
+                              aria-label={t("Fjern bilag")}
                             >
                               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden>
                                 <path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.518.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 0-1.5.06l.3 7.5a.75.75 0 1 0 1.5-.06l-.3-7.5Z" clipRule="evenodd" />
@@ -1799,9 +1680,7 @@ export function ReviewEditor({
                             });
                           }}
                           className="text-left text-xs text-muted underline decoration-control underline-offset-2 hover:text-ink md:hidden pl-5"
-                        >
-                          Legg til kommentar
-                        </button>
+                        ><T>{"Legg til kommentar"}</T></button>
                       )}
                     </div>
                   </div>,
@@ -1826,12 +1705,11 @@ export function ReviewEditor({
                               adjustCommentHeight(e.target as HTMLTextAreaElement);
                             }}
                             disabled={isSubmitted}
-                            placeholder={
-                              activeFlags.includes("MEAL")
+                            placeholder={t(activeFlags.includes("MEAL")
                                 ? MEAL_COMMENT_PLACEHOLDER
                                 : activeFlags.includes("TRANSPORT")
                                   ? TRANSPORT_COMMENT_PLACEHOLDER
-                                  : "Skriv en kommentar (valgfritt)…"
+                                  : "Skriv en kommentar (valgfritt)…")
                             }
                             aria-required={
                               (activeFlags.includes("MEAL") ||
@@ -1899,11 +1777,9 @@ export function ReviewEditor({
                               );
                             }}
                             className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-base leading-none text-muted hover:text-ink focus:outline-none"
-                            title="Fjern kommentar"
-                            aria-label="Fjern kommentar"
-                          >
-                            ×
-                          </button>
+                            title={t("Fjern kommentar")}
+                            aria-label={t("Fjern kommentar")}
+                          ><T>{"×"}</T></button>
                         )}
                       </div>
                     </div>
@@ -1930,13 +1806,11 @@ export function ReviewEditor({
               disabled={addingReceipts}
               className="rounded-md bg-secondary px-3 py-2 text-sm font-medium text-ink hover:bg-secondary-hover disabled:opacity-50"
             >
-              {addingReceipts ? "Laster opp og analyserer…" : "Legg til"}
+              {t(addingReceipts ? "Laster opp og analyserer…" : "Legg til")}
             </button>
-            <span className="hidden md:inline text-sm text-muted">
-              Dra filer hit for å legge til kvitteringer, eller bruk knappen.
-            </span>
+            <span className="hidden md:inline text-sm text-muted"><T>{"Dra filer hit for å legge til kvitteringer, eller bruk knappen."}</T></span>
             {addError && (
-              <p className="w-full text-sm text-neg sm:w-auto">{addError}</p>
+              <p className="w-full text-sm text-neg sm:w-auto">{t(addError)}</p>
             )}
           </div>
         )}
@@ -1949,11 +1823,9 @@ export function ReviewEditor({
           className="grid gap-4 rounded-lg border border-line bg-surface p-5"
           aria-labelledby="summary-title"
         >
-          <h2 id="summary-title" className="text-[15px] font-semibold text-ink">
-            Oppsummering
-          </h2>
+          <h2 id="summary-title" className="text-[15px] font-semibold text-ink"><T>{"Oppsummering"}</T></h2>
           <div>
-            <p className="text-sm text-muted">{diffShort(diffCents)}</p>
+            <p className="text-sm text-muted">{t(diffShort(diffCents))}</p>
             <p
               className={`whitespace-nowrap text-[30px] font-bold leading-tight tracking-tight tabular-nums ${
                 diffCents < 0 ? "text-neg" : "text-data"
@@ -1964,15 +1836,15 @@ export function ReviewEditor({
           </div>
           <dl className="space-y-2 text-sm">
             <div className="flex justify-between gap-3">
-              <dt className="text-muted">Total</dt>
+              <dt className="text-muted"><T>{"Total"}</T></dt>
               <dd className="text-ink tabular-nums">{formatNok(totalCents)}</dd>
             </div>
             <div className="flex justify-between gap-3">
-              <dt className="text-muted">Produksjonskasse</dt>
+              <dt className="text-muted"><T>{"Produksjonskasse"}</T></dt>
               <dd className="text-ink tabular-nums">{formatNok(productionCashCents)}</dd>
             </div>
             <div className="flex items-start justify-between gap-3 border-t border-rule pt-2">
-              <dt className="min-w-0 text-muted">{diffLabel(diffCents)}</dt>
+              <dt className="min-w-0 text-muted">{t(diffLabel(diffCents))}</dt>
               <dd className="shrink-0 whitespace-nowrap font-semibold text-ink tabular-nums">
                 {formatNok(diffCents)}
               </dd>
@@ -1985,17 +1857,14 @@ export function ReviewEditor({
                 type="button"
                 onClick={openFormPreview}
                 className="h-10 rounded-md bg-secondary px-4 text-sm font-medium text-ink hover:bg-secondary-hover"
-              >
-                Forhåndsvis skjema
-              </button>
+              ><T>{"Forhåndsvis skjema"}</T></button>
             </div>
           )}
           {submitError && (
-            <p className="text-sm text-neg">{submitError}</p>
+            <p className="text-sm text-neg">{t(submitError)}</p>
           )}
         </section>
-        <p className="px-1 text-sm text-muted">
-          Har du spørsmål vedrørende utlegg, kan disse rettes til{" "}
+        <p className="px-1 text-sm text-muted"><T>{"Har du spørsmål vedrørende utlegg, kan disse rettes til"}</T>{t(" ")}
           <a
             href="mailto:utlegg@aparent.tv"
             className="text-ink underline hover:opacity-80"
@@ -2009,7 +1878,7 @@ export function ReviewEditor({
       {!isSubmitted && (
         <div className="sticky bottom-0 z-20 -mx-4 flex items-center justify-between gap-3 border-t border-line bg-surface px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:-mx-8 md:px-8 lg:hidden">
           <div className="min-w-0">
-            <p className="text-xs text-muted">{diffShort(diffCents)}</p>
+            <p className="text-xs text-muted">{t(diffShort(diffCents))}</p>
             <p
               className={`whitespace-nowrap text-lg font-bold tabular-nums ${
                 diffCents < 0 ? "text-neg" : "text-data"
@@ -2023,9 +1892,7 @@ export function ReviewEditor({
               type="button"
               onClick={openFormPreview}
               className="h-9 rounded-md bg-secondary px-3 text-sm font-medium text-ink hover:bg-secondary-hover"
-            >
-              Forhåndsvis
-            </button>
+            ><T>{"Forhåndsvis"}</T></button>
             {sendButton("h-9 px-3")}
           </div>
         </div>
@@ -2047,22 +1914,14 @@ export function ReviewEditor({
             <h2
               id="meal-info-modal-title"
               className="mb-4 text-lg font-semibold text-ink"
-            >
-              Mat og drikke
-            </h2>
+            ><T>{"Mat og drikke"}</T></h2>
             <div className="text-sm text-ink space-y-3 mb-6">
-              <p>
-                Det ser ut som du har lagt til en eller flere kvitteringer som inneholder mat eller drikke. I så fall må du legge til en kommentar på hva og hvem det er til.
+              <p><T>{"Det ser ut som du har lagt til en eller flere kvitteringer som inneholder mat eller drikke. I så fall må du legge til en kommentar på hva og hvem det er til."}</T></p>
+              <p className="text-muted"><T>{"Eksempel på mat til opptak: "}</T><em className="rounded bg-raised px-1.5 not-italic"><T>{"Mat og drikke til crew og aktører"}</T></em>
               </p>
-              <p className="text-muted">
-                Eksempel på mat til opptak: <em className="rounded bg-raised px-1.5 not-italic">Mat og drikke til crew og aktører</em>
+              <p className="text-muted"><T>{"Eksempel på annen mat: "}</T><em className="rounded bg-raised px-1.5 not-italic"><T>{"Overtidsmat til [Ditt navn]"}</T></em>
               </p>
-              <p className="text-muted">
-                Eksempel på annen mat: <em className="rounded bg-raised px-1.5 not-italic">Overtidsmat til [Ditt navn]</em>
-              </p>
-              <p>
-                Hvis kvitteringen ikke inneholder mat eller drikke så fjerner du bare kommentarfeltet eller mat/drikke-taggen.
-              </p>
+              <p><T>{"Hvis kvitteringen ikke inneholder mat eller drikke så fjerner du bare kommentarfeltet eller mat/drikke-taggen."}</T></p>
             </div>
             <div className="flex justify-end">
               <button
@@ -2073,9 +1932,7 @@ export function ReviewEditor({
                   setTimeout(() => setMealModalClosedOnce(true), 150);
                 }}
                 className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-fg hover:bg-primary-hover"
-              >
-                Lukk
-              </button>
+              ><T>{"Lukk"}</T></button>
             </div>
           </div>
         </div>
@@ -2095,19 +1952,12 @@ export function ReviewEditor({
             <h2
               id="transport-info-modal-title"
               className="mb-4 text-lg font-semibold text-ink"
-            >
-              Reisekostnader
-            </h2>
+            ><T>{"Reisekostnader"}</T></h2>
             <div className="text-sm text-ink space-y-3 mb-6">
-              <p>
-                Det ser ut som du har lagt til en eller flere kvitteringer som kan være reisekostnader (f.eks. parkering, bensin, taxi, kollektiv). Legg gjerne til en kort kommentar om formålet.
+              <p><T>{"Det ser ut som du har lagt til en eller flere kvitteringer som kan være reisekostnader (f.eks. parkering, bensin, taxi, kollektiv). Legg gjerne til en kort kommentar om formålet."}</T></p>
+              <p className="text-muted"><T>{"Eksempel: "}</T><em className="rounded bg-raised px-1.5 not-italic"><T>{"Reise til/fra opptak"}</T></em><T>{"eller "}</T><em className="rounded bg-raised px-1.5 not-italic"><T>{"Parkering under innspilling"}</T></em>
               </p>
-              <p className="text-muted">
-                Eksempel: <em className="rounded bg-raised px-1.5 not-italic">Reise til/fra opptak</em> eller <em className="rounded bg-raised px-1.5 not-italic">Parkering under innspilling</em>
-              </p>
-              <p>
-                Hvis kvitteringen ikke er en reisekostnad, fjerner du taggen eller kommentarfeltet.
-              </p>
+              <p><T>{"Hvis kvitteringen ikke er en reisekostnad, fjerner du taggen eller kommentarfeltet."}</T></p>
             </div>
             <div className="flex justify-end">
               <button
@@ -2117,9 +1967,7 @@ export function ReviewEditor({
                   setTimeout(() => setTransportModalClosedOnce(true), 150);
                 }}
                 className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-fg hover:bg-primary-hover"
-              >
-                Lukk
-              </button>
+              ><T>{"Lukk"}</T></button>
             </div>
           </div>
         </div>
@@ -2139,26 +1987,19 @@ export function ReviewEditor({
             <h2
               id="currency-info-modal-title"
               className="mb-4 text-lg font-semibold text-ink"
-            >
-              Kvittering i {foreignCurrencyCode ?? "utenlandsk valuta"}
+            ><T>{"Kvittering i "}</T>{foreignCurrencyCode ?? "utenlandsk valuta"}
             </h2>
             <div className="text-sm text-ink space-y-3 mb-6">
-              <p>
-                Du har lagt til en kvittering i{" "}
-                {foreignCurrencyCode ?? "utenlandsk valuta"}. Skriv inn beløpet i NOK i feltet for beløp.
-              </p>
-              <p className="text-muted">
-                Beløpet i {foreignCurrencyCode ?? "opprinnelig valuta"} vises kun som referanse og blir ikke automatisk omregnet.
-              </p>
+              <p><T>{"Du har lagt til en kvittering i"}</T>{t(" ")}
+                {foreignCurrencyCode ?? "utenlandsk valuta"}<T>{". Skriv inn beløpet i NOK i feltet for beløp."}</T></p>
+              <p className="text-muted"><T>{"Beløpet i "}</T>{foreignCurrencyCode ?? "opprinnelig valuta"}<T>{"vises kun som referanse og blir ikke automatisk omregnet."}</T></p>
             </div>
             <div className="flex justify-end">
               <button
                 type="button"
                 onClick={() => setShowCurrencyInfoModal(false)}
                 className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-fg hover:bg-primary-hover"
-              >
-                Lukk
-              </button>
+              ><T>{"Lukk"}</T></button>
             </div>
           </div>
         </div>
@@ -2179,12 +2020,8 @@ export function ReviewEditor({
             <h2
               id="confirm-modal-title"
               className="mb-4 text-lg font-semibold text-ink"
-            >
-              Siste sjekk før innsending
-            </h2>
-            <p className="text-sm text-muted mb-4">
-              Gå gjennom punktene nedenfor før du sender inn utlegget.
-            </p>
+            ><T>{"Siste sjekk før innsending"}</T></h2>
+            <p className="text-sm text-muted mb-4"><T>{"Gå gjennom punktene nedenfor før du sender inn utlegget."}</T></p>
             <ul className="space-y-3 mb-6">
               <li className="flex items-start gap-3">
                 <input
@@ -2194,9 +2031,7 @@ export function ReviewEditor({
                   onChange={(e) => setConfirmCheckedSums(e.target.checked)}
                   className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
                 />
-                <label htmlFor="confirm-sums" className="text-sm text-ink">
-                  Jeg har dobbeltsjekket at summer og beskrivelser stemmer
-                </label>
+                <label htmlFor="confirm-sums" className="text-sm text-ink"><T>{"Jeg har dobbeltsjekket at summer og beskrivelser stemmer"}</T></label>
               </li>
               <li className="flex items-start gap-3">
                 <input
@@ -2206,22 +2041,20 @@ export function ReviewEditor({
                   onChange={(e) => setConfirmCheckedProduction(e.target.checked)}
                   className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
                 />
-                <label htmlFor="confirm-production" className="text-sm text-ink">
-                  Jeg har fylt inn om jeg har mottatt produksjonskasse (forskudd) eller ikke
-                </label>
+                <label htmlFor="confirm-production" className="text-sm text-ink"><T>{"Jeg har fylt inn om jeg har mottatt produksjonskasse (forskudd) eller ikke"}</T></label>
               </li>
             </ul>
             <dl className="space-y-2 text-sm mb-6 p-4 rounded-lg bg-ground">
               <div className="flex justify-between">
-                <dt className="text-muted">Total</dt>
+                <dt className="text-muted"><T>{"Total"}</T></dt>
                 <dd className="text-ink">{formatNok(totalCents)}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-muted">Produksjonskasse</dt>
+                <dt className="text-muted"><T>{"Produksjonskasse"}</T></dt>
                 <dd className="text-ink">{formatNok(productionCashCents)}</dd>
               </div>
               <div className="flex justify-between items-start gap-2 pt-2 border-t border-rule">
-                <dt className="text-muted min-w-0">{diffLabel(diffCents)}</dt>
+                <dt className="text-muted min-w-0">{t(diffLabel(diffCents))}</dt>
                 <dd
                   className={`font-medium whitespace-nowrap shrink-0 ${
                     diffCents > 0
@@ -2236,7 +2069,7 @@ export function ReviewEditor({
               </div>
               {diffCents < 0 && (
                 <div className="flex justify-between pt-2 text-ink">
-                  <dt className="text-muted">Kontonummer for tilbakebetaling</dt>
+                  <dt className="text-muted"><T>{"Kontonummer for tilbakebetaling"}</T></dt>
                   <dd className="font-mono text-ink">{REPAYMENT_ACCOUNT_NUMBER}</dd>
                 </div>
               )}
@@ -2246,9 +2079,7 @@ export function ReviewEditor({
                 type="button"
                 onClick={() => setShowConfirmModal(false)}
                 className="rounded-md bg-secondary px-4 py-2 text-sm font-medium text-ink hover:bg-secondary-hover"
-              >
-                Avbryt
-              </button>
+              ><T>{"Avbryt"}</T></button>
               <button
                 type="button"
                 onClick={() => {
@@ -2256,9 +2087,7 @@ export function ReviewEditor({
                 }}
                 disabled={!confirmCheckedSums || !confirmCheckedProduction}
                 className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-fg hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Bekreft og send inn
-              </button>
+              ><T>{"Bekreft og send inn"}</T></button>
             </div>
           </div>
         </div>
@@ -2269,7 +2098,7 @@ export function ReviewEditor({
           className="fixed inset-0 z-50 flex items-center justify-center bg-scrim p-4"
           role="dialog"
           aria-modal="true"
-          aria-label="Forhåndsvis bilag"
+          aria-label={t("Forhåndsvis bilag")}
           onClick={() => setPreviewReceipt(null)}
         >
           <div
@@ -2287,7 +2116,7 @@ export function ReviewEditor({
               type="button"
               onClick={() => setPreviewReceipt(null)}
               className="absolute right-2 top-2 z-10 rounded-full bg-raised p-1.5 text-muted hover:bg-secondary-hover hover:text-ink focus:outline-none focus:ring-2 focus:ring-ink"
-              aria-label="Lukk"
+              aria-label={t("Lukk")}
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
                 <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
@@ -2301,16 +2130,13 @@ export function ReviewEditor({
                   const alt = `${previewReceipt.extractedSummary || previewReceipt.originalFileName}, del ${k + 1} av ${previewFiles.length}`;
                   return (
                     <figure key={file.key} className="space-y-2">
-                      <figcaption className="text-xs text-muted">
-                        Del {k + 1} av {previewFiles.length}
+                      <figcaption className="text-xs text-muted"><T>{"Del "}</T>{k + 1}<T>{"av "}</T>{previewFiles.length}
                       </figcaption>
                       {fileIsImage ? (
                         <>
                           {!loaded && (
                             <div className="flex h-64 w-full flex-col items-center justify-center gap-3 rounded-md bg-raised text-sm text-muted" role="status">
-                              <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden />
-                              Henter bilaget…
-                            </div>
+                              <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden /><T>{"Henter bilaget…"}</T></div>
                           )}
                           <img
                             src={file.url}
@@ -2330,9 +2156,7 @@ export function ReviewEditor({
               <>
                 {!loadedPreviewKeys.has(previewReceipt.id) && (
                   <div className="flex h-[60vh] w-[min(80vw,420px)] flex-col items-center justify-center gap-3 text-sm text-muted" role="status">
-                    <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden />
-                    Henter bilaget…
-                  </div>
+                    <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden /><T>{"Henter bilaget…"}</T></div>
                 )}
                 <img
                   key={previewReceipt.id}
@@ -2369,12 +2193,8 @@ export function ReviewEditor({
               className="flex max-h-[90vh] w-full max-w-md flex-col rounded-xl border border-line bg-surface p-6 shadow-xl"
               onClick={(e) => e.stopPropagation()}
             >
-              <h2 id="merge-modal-title" className="mb-2 text-lg font-semibold text-ink">
-                Slå sammen kvitteringer
-              </h2>
-              <p className="mb-4 text-sm text-muted">
-                Velg kvitteringene som er deler av samme kvittering. Bildene legges etter bildene i kvittering {targetIndex + 1}, og kvitteringen leses på nytt.
-              </p>
+              <h2 id="merge-modal-title" className="mb-2 text-lg font-semibold text-ink"><T>{"Slå sammen kvitteringer"}</T></h2>
+              <p className="mb-4 text-sm text-muted"><T>{"Velg kvitteringene som er deler av samme kvittering. Bildene legges etter bildene i kvittering "}</T>{targetIndex + 1}<T>{", og kvitteringen leses på nytt."}</T></p>
               <ul className="mb-6 min-h-0 space-y-1 overflow-auto">
                 {others.map((r) => {
                   const n = receipts.findIndex((x) => x.id === r.id) + 1;
@@ -2409,9 +2229,7 @@ export function ReviewEditor({
                   type="button"
                   onClick={close}
                   className="rounded-md bg-secondary px-4 py-2 text-sm font-medium text-ink hover:bg-secondary-hover"
-                >
-                  Avbryt
-                </button>
+                ><T>{"Avbryt"}</T></button>
                 <button
                   type="button"
                   disabled={mergeSelection.size === 0}
@@ -2424,9 +2242,7 @@ export function ReviewEditor({
                     void handleMerge(target, sourceIds);
                   }}
                   className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-fg hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Slå sammen
-                </button>
+                ><T>{"Slå sammen"}</T></button>
               </div>
             </div>
           </div>

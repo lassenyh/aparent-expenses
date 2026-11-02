@@ -1,3 +1,4 @@
+import { bankPdfRows } from "@/lib/bankDetails";
 import fs from "fs";
 import path from "path";
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage, type RGB } from "pdf-lib";
@@ -46,8 +47,8 @@ function formatNok(cents: number): string {
 }
 
 function diffLabel(diffCents: number): string {
-  if (diffCents > 0) return "Til utbetaling (Aparent skylder deg)";
-  if (diffCents < 0) return "Tilbakebetaling (du skylder Aparent)";
+  if (diffCents > 0) return "Til utbetaling";
+  if (diffCents < 0) return "Til tilbakebetaling";
   return "I balanse";
 }
 
@@ -78,7 +79,20 @@ function makeSafe(font: PDFFont) {
 }
 
 function wrap(text: string, font: PDFFont, size: number, width: number): string[] {
-  const words = text.split(/\s+/).filter(Boolean);
+  const words = text.split(/\s+/).filter(Boolean).flatMap(word => {
+    if (font.widthOfTextAtSize(word, size) <= width) return [word];
+    const chunks: string[] = [];
+    let chunk = "";
+    for (const character of word) {
+      if (chunk && font.widthOfTextAtSize(chunk + character, size) > width) {
+        chunks.push(chunk);
+        chunk = "";
+      }
+      chunk += character;
+    }
+    if (chunk) chunks.push(chunk);
+    return chunks;
+  });
   const lines: string[] = [];
   let line = "";
   for (const word of words) {
@@ -175,17 +189,18 @@ export async function renderExpenseSummaryPdf({
     ["Prosjektnummer", submission.projectNumber?.trim() || "—"],
     ["Prosjektnavn", submission.project ?? "—"],
     ["Dato", formatDate(submission.workDate)],
-    ["Kontonummer", submission.accountNumber ?? "—"],
+    ...(submission.bankDetails ? bankPdfRows(submission.bankDetails) : [["Kontonummer", submission.accountNumber ?? "—"]] as Array<[string,string]>),
     ["Produksjonskasse", formatNok(submission.productionCashCents)],
   ];
-  const infoHeight = CARD_PAD + 12 + 12 + infoRows.length * (LINE + 9) - 9 + CARD_PAD;
+  const wrappedInfo = infoRows.map(([label, value]) => ({ label, lines: wrap(safe(value), regular, TEXT, CONTENT_W - CARD_PAD * 2 - 150) }));
+  const infoHeight = CARD_PAD + 24 + wrappedInfo.reduce((sum, row) => sum + row.lines.length * LINE + 9, 0) - 9 + CARD_PAD;
   const infoTop = top;
   cardTitle("Person- og prosjektinfo", top + CARD_PAD + 9);
   let rowTop = top + CARD_PAD + 12 + 12;
-  for (const [label, value] of infoRows) {
+  for (const {label, lines} of wrappedInfo) {
     text(label, MARGIN_X + CARD_PAD, rowTop + 11, { color: muted });
-    text(value, PAGE_W - MARGIN_X - CARD_PAD, rowTop + 11, { align: "right" });
-    rowTop += LINE + 9;
+    lines.forEach((value, index) => text(value, PAGE_W - MARGIN_X - CARD_PAD, rowTop + 11 + index * LINE, { align: "right" }));
+    rowTop += lines.length * LINE + 9;
   }
   box(MARGIN_X, infoTop, CONTENT_W, infoHeight, 9);
   top += infoHeight + SECTION_GAP;

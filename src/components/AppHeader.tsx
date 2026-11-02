@@ -1,7 +1,13 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { LanguageSwitch, T, useLanguage } from "./LanguageProvider";
 
 /** Top bar shared by the app's pages: the logo, optionally a link, and a step label. */
 export function AppHeader({ logoHref, step }: { logoHref?: string; step?: string }) {
+  const { t } = useLanguage();
+  const pathname = usePathname();
   const logo = (
     // eslint-disable-next-line @next/next/no-img-element
     <img src="/logo.png" alt="Aparent" className="logo-img h-[30px] w-auto" />
@@ -11,7 +17,7 @@ export function AppHeader({ logoHref, step }: { logoHref?: string; step?: string
       {logoHref ? (
         <Link
           href={logoHref}
-          aria-label="Til opplasting"
+          aria-label={t("Til opplasting")}
           className="rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-ground"
         >
           {logo}
@@ -19,7 +25,10 @@ export function AppHeader({ logoHref, step }: { logoHref?: string; step?: string
       ) : (
         logo
       )}
-      {step && <span className="text-[13px] text-muted">{step}</span>}
+      <div className="flex flex-wrap items-center justify-end gap-3">
+        {step && <span className="text-[13px] text-muted"><T>{step}</T></span>}
+        {!pathname.startsWith("/admin") && !pathname.startsWith("/auth") && <LanguageSwitch />}
+      </div>
     </header>
   );
 }

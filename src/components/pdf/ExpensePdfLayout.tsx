@@ -1,3 +1,4 @@
+import { bankPdfRows, type BankDetails } from "@/lib/bankDetails";
 import { REPAYMENT_ACCOUNT_NUMBER } from "@/lib/constants";
 import { currencyDisplay } from "@/lib/currencyDisplay";
 
@@ -11,6 +12,7 @@ export type ExpensePdfSubmission = {
   project: string | null;
   workDate: string | null;
   accountNumber: string | null;
+  bankDetails?: BankDetails | null;
   productionCashCents: number;
 };
 
@@ -49,8 +51,8 @@ function formatNok(cents: number): string {
 }
 
 function diffLabel(diffCents: number): string {
-  if (diffCents > 0) return "Til utbetaling (Aparent skylder deg)";
-  if (diffCents < 0) return "Tilbakebetaling (du skylder Aparent)";
+  if (diffCents > 0) return "Til utbetaling";
+  if (diffCents < 0) return "Til tilbakebetaling";
   return "I balanse";
 }
 
@@ -75,6 +77,7 @@ export function ExpensePdfLayout({
 
   return (
     <div
+      lang="nb"
       className="min-h-screen bg-white p-10 print:p-10 print:bg-white"
       style={{
         fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif',
@@ -141,12 +144,18 @@ export function ExpensePdfLayout({
             </div>
             <div className="flex justify-between gap-4">
               <dt className="text-gray-500 print:text-gray-700">
-                Kontonummer
+                {submission.bankDetails ? "IBAN" : "Kontonummer"}
               </dt>
               <dd className="text-right font-mono font-medium text-gray-900 print:text-black">
-                {submission.accountNumber ?? "—"}
+                {submission.bankDetails?.iban ?? submission.accountNumber ?? "—"}
               </dd>
             </div>
+            {bankPdfRows(submission.bankDetails).filter(([label]) => label !== "IBAN").map(([label, value]) => (
+              <div key={label} className="flex justify-between gap-4">
+                <dt className="shrink-0 text-gray-500 print:text-gray-700">{label}</dt>
+                <dd className="min-w-0 break-words text-right font-medium text-gray-900 print:text-black">{value}</dd>
+              </div>
+            ))}
             <div className="flex justify-between gap-4">
               <dt className="text-gray-500 print:text-gray-700">
                 Produksjonskasse
@@ -243,6 +252,7 @@ export function ExpensePdfLayout({
                 {formatNok(totalCents)}
               </dd>
             </div>
+
             <div className="flex justify-between gap-4">
               <dt className="text-gray-500 print:text-gray-700">
                 Produksjonskasse

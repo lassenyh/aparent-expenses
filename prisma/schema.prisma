@@ -25,6 +25,7 @@ model Submission {
   project             String?
   workDate            DateTime?
   productionCash      Int?
+  bankDetails         Json?
   accountNumber       String?
   totalInclVat        Int?
   combinedPdfUrl      String?
