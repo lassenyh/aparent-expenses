@@ -26,6 +26,8 @@ type ReceiptRow = {
   comment: string | null;
   commentFlags: string | null;
   dismissedCommentFlags: string | null;
+  /** Shop or supplier read by the analysis; null for receipts analysed before it was stored. */
+  merchant?: string | null;
 };
 
 function mapToReceiptRow(r: ReceiptRow): ReceiptRow {
@@ -41,6 +43,7 @@ function mapToReceiptRow(r: ReceiptRow): ReceiptRow {
     comment: r.comment ?? null,
     commentFlags: r.commentFlags ?? null,
     dismissedCommentFlags: r.dismissedCommentFlags ?? null,
+    merchant: r.merchant ?? null,
   };
 }
 
@@ -1111,6 +1114,15 @@ export function ReviewEditor({
                             className="min-w-0 flex-1 h-8 w-full rounded-md border border-transparent bg-transparent px-2 py-1 font-medium text-ink hover:border-control focus:border-ink focus:bg-field focus:outline-none"
                             placeholder="Beskrivelse"
                           />
+                          {r.merchant && (
+                            <span
+                              className="inline-flex max-w-[14rem] shrink-0 self-start rounded-md border border-line bg-raised px-1.5 py-0.5 text-xs text-muted md:self-center"
+                              title={r.merchant}
+                            >
+                              <span className="sr-only">Butikk: </span>
+                              <span className="truncate">{r.merchant}</span>
+                            </span>
+                          )}
                           {r.originalAmountCents != null &&
                             r.extractedCurrency &&
                             r.extractedCurrency.toUpperCase() !== "NOK" && (

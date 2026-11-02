@@ -67,6 +67,7 @@ export async function analyzeAndStoreReceipt(receipt: StoredReceipt, bytes: Buff
       extractedCurrency: analyzed.currency ?? "NOK",
       originalAmountCents: analyzed.originalAmountCents ?? undefined,
       commentFlags: stringifyCommentFlags(activeFlags),
+      merchant: analyzed.merchant?.trim() || null,
     },
   });
 }
