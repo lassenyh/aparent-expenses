@@ -2,6 +2,11 @@ import { get } from "@vercel/blob";
 import { prisma } from "@/lib/db";
 import { analyzeReceipt } from "@/lib/analyzeReceipt";
 import {
+  detectReceiptImageFormat,
+  normalizeReceiptImage,
+} from "@/lib/images/normalizeReceiptImage";
+import { storeReceiptPreview } from "@/lib/receiptPreview";
+import {
   detectSmartComment,
   parseCommentFlags,
   stringifyCommentFlags,
@@ -35,7 +40,17 @@ export async function readReceiptBlob(blobUrl: string): Promise<Buffer | null> {
 
 /** Analyses one stored receipt and saves the extracted fields and comment flags. */
 export async function analyzeAndStoreReceipt(receipt: StoredReceipt, bytes: Buffer): Promise<void> {
-  const analyzed = await analyzeReceipt(bytes, receipt.mimeType);
+  // HEIC is decoded once here; the JPEG feeds the analysis and is kept for the receipt preview.
+  let analysisBytes = bytes;
+  let analysisMimeType = receipt.mimeType;
+  if (detectReceiptImageFormat(bytes, receipt.mimeType) === "heic") {
+    analysisBytes = await normalizeReceiptImage(bytes, receipt.mimeType);
+    analysisMimeType = "image/jpeg";
+    await storeReceiptPreview(receipt.id, analysisBytes).catch((error) =>
+      console.warn("[analyzeStoredReceipt] Kunne ikke lagre forhåndsvisning", error)
+    );
+  }
+  const analyzed = await analyzeReceipt(analysisBytes, analysisMimeType);
   const { flags } = detectSmartComment({
     description: analyzed.summary,
     vendor: receipt.originalFileName,

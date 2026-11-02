@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { del } from "@vercel/blob";
 import { prisma } from "@/lib/db";
+import { deleteReceiptPreview } from "@/lib/receiptPreview";
 import {
   parseCommentFlags,
   stringifyCommentFlags,
@@ -135,6 +136,7 @@ export async function DELETE(
     } catch {
       // Ignore blob delete errors (e.g. missing token or blob already gone)
     }
+    await deleteReceiptPreview(id);
 
     return NextResponse.json({ ok: true });
   } catch (error) {

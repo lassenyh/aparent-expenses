@@ -1,7 +1,8 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { get } from "@vercel/blob";
 import { prisma } from "@/lib/db";
 import { readReceiptBlob } from "@/lib/analyzeStoredReceipt";
+import { readReceiptPreview, storeReceiptPreview } from "@/lib/receiptPreview";
 import {
   detectReceiptImageFormat,
   normalizeReceiptImage,
@@ -44,12 +45,28 @@ export async function GET(
   try {
     // Only Safari can show HEIC, so iPhone photos are converted to JPEG for viewing.
     if (looksLikeHeic(receipt.mimeType, receipt.originalFileName)) {
+      const preview = await readReceiptPreview(receipt.id);
+      if (preview) {
+        return new NextResponse(new Uint8Array(preview), {
+          headers: {
+            "Content-Type": "image/jpeg",
+            "Content-Disposition": "inline",
+            "Cache-Control": "private, max-age=3600",
+          },
+        });
+      }
       const bytes = await readReceiptBlob(receipt.blobUrl);
       if (!bytes) {
         return NextResponse.json({ error: "Kunne ikke hente bilag" }, { status: 502 });
       }
       if (detectReceiptImageFormat(bytes, receipt.mimeType) === "heic") {
         const jpeg = await normalizeReceiptImage(bytes, receipt.mimeType);
+        // Receipts analysed before previews were stored get one now, after the response.
+        after(() =>
+          storeReceiptPreview(receipt.id, jpeg).catch((error) =>
+            console.warn("[receipt blob] Kunne ikke lagre forhåndsvisning", error)
+          )
+        );
         return new NextResponse(new Uint8Array(jpeg), {
           headers: {
             "Content-Type": "image/jpeg",

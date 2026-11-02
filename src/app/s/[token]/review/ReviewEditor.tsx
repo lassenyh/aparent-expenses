@@ -102,6 +102,8 @@ export function ReviewEditor({
     initialData.combinedPdfUrl
   );
   const [previewReceipt, setPreviewReceipt] = useState<ReceiptRow | null>(null);
+  const [loadedPreviewId, setLoadedPreviewId] = useState<string | null>(null);
+  const prefetchedPreviewIds = useRef<Set<string>>(new Set());
   const [addingReceipts, setAddingReceipts] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -623,10 +625,16 @@ export function ReviewEditor({
     }
   };
 
-  const blobPreviewUrl =
-    previewReceipt && token
-      ? `/api/submissions/${encodeURIComponent(token)}/receipts/${encodeURIComponent(previewReceipt.id)}/blob`
-      : null;
+  const receiptFileUrl = (id: string) =>
+    `/api/submissions/${encodeURIComponent(token)}/receipts/${encodeURIComponent(id)}/blob`;
+  const blobPreviewUrl = previewReceipt && token ? receiptFileUrl(previewReceipt.id) : null;
+  /** Starts loading a receipt image when the pointer or focus reaches «Vis bilag», so it is often ready on click. */
+  const prefetchPreview = (r: ReceiptRow) => {
+    if (!r.mimeType?.toLowerCase().startsWith("image/") || prefetchedPreviewIds.current.has(r.id)) return;
+    prefetchedPreviewIds.current.add(r.id);
+    const img = new Image();
+    img.src = receiptFileUrl(r.id);
+  };
   const isImage =
     previewReceipt?.mimeType?.toLowerCase().startsWith("image/") ?? false;
 
@@ -1240,6 +1248,8 @@ export function ReviewEditor({
                           <button
                             type="button"
                             onClick={() => setPreviewReceipt(r)}
+                            onPointerEnter={() => prefetchPreview(r)}
+                            onFocus={() => prefetchPreview(r)}
                             className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-control bg-surface text-muted hover:border-control-hover hover:text-ink focus:border-ink focus:outline-none"
                             title="Vis bilag"
                             aria-label="Vis bilag"
@@ -1381,6 +1391,8 @@ export function ReviewEditor({
                           <button
                             type="button"
                             onClick={() => setPreviewReceipt(r)}
+                            onPointerEnter={() => prefetchPreview(r)}
+                            onFocus={() => prefetchPreview(r)}
                             className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-control bg-surface text-muted hover:border-control-hover hover:text-ink focus:border-ink focus:outline-none"
                             title="Vis bilag"
                             aria-label="Vis bilag"
@@ -1907,11 +1919,21 @@ export function ReviewEditor({
               </svg>
             </button>
             {isImage ? (
-              <img
-                src={blobPreviewUrl}
-                alt={previewReceipt.extractedSummary || previewReceipt.originalFileName}
-                className="max-h-[90vh] max-w-[95vw] w-auto h-auto object-contain block"
-              />
+              <>
+                {loadedPreviewId !== previewReceipt.id && (
+                  <div className="flex h-[60vh] w-[min(80vw,420px)] flex-col items-center justify-center gap-3 text-sm text-muted" role="status">
+                    <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden />
+                    Henter bilaget…
+                  </div>
+                )}
+                <img
+                  key={previewReceipt.id}
+                  src={blobPreviewUrl}
+                  alt={previewReceipt.extractedSummary || previewReceipt.originalFileName}
+                  onLoad={() => setLoadedPreviewId(previewReceipt.id)}
+                  className={`max-h-[90vh] max-w-[95vw] w-auto h-auto object-contain ${loadedPreviewId === previewReceipt.id ? "block" : "hidden"}`}
+                />
+              </>
             ) : (
               <iframe
                 src={blobPreviewUrl}
