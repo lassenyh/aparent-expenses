@@ -27,7 +27,17 @@ Konfigurer servervariabler lokalt i `.env.local` eller i driftsmiljøet. Ikke le
 | `ADMIN_EMAIL` | Regnskapsmottaker for vanlige utlegg, bindes ved opprettelse |
 | `RESEND_API_KEY`, `RESEND_FROM` | E-post; bruk verifisert avsender i drift |
 | `ADMIN_SUBMITTER_NAME`, `ADMIN_SUBMITTER_ACCOUNT`, `ADMIN_SUBMITTER_EMAIL` | Admin-forhåndsutfylling og mottaker. Opplysningene bindes til hvert oppgjør. |
+| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Innlogging til admin (Supabase Auth, e-post og passord). Prosjekter og utlegg ligger fortsatt i egen database. |
+| `ADMIN_EMAILS` | Kommaseparert liste over e-postadresser som slipper inn i `/admin` |
 | `NEXT_DIST_DIR` | Valgfri separat Next-buildmappe for parallell testing |
+
+## Innlogging i Vercel-forhåndsvisningen
+
+`.env.development.local` brukes bare av lokal utvikling. Sett `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` og `ADMIN_EMAILS` i Vercel for Preview-miljøet, eventuelt avgrenset til branchen `project-links`. Administratorlisten er kommaseparert. Tom liste deaktiverer innlogging.
+
+Legg forhåndsvisningens adresse med `/auth/callback` til under Supabase → Authentication → URL Configuration → Redirect URLs. Tillat også `/auth/callback?next=/auth/reset-password` for tilbakestilling. Opprett administratorbrukeren i Supabase på forhånd med e-post og passord; appen har ingen åpen registrering. «Glemt passord?» sender en tilbakestillingslenke til eksisterende administratorer. Bruk samme vertsnavn og nettleser når tilbakestillingen startes og e-postlenken åpnes: PKCE-flyten bruker en informasjonskapsel fra forespørselen. Nytt passord må ha minst 12 tegn. Standard e-postmal med `{{ .ConfirmationURL }}` støttes. Supabase må også kunne sende e-post til administratoren; kontroller SMTP-oppsettet hvis lenken ikke kommer frem.
+
+Opprett en ny Preview-deployment etter at Vercel-variablene er lagret. Eksisterende deployments får ikke nye variabler automatisk. Test `/admin/login` med e-post og passord, og kontroller at `/admin` viser prosjektlisten. Test også «Glemt passord?» og at lenken åpner skjemaet for nytt passord. Produksjonsmiljøet konfigureres separat.
 
 ## Gjeldende brukerflyt
 

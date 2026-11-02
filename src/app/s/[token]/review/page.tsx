@@ -161,6 +161,7 @@ export default async function ReviewPage(props: PageProps) {
     name: submission.name ?? adminDefaults?.name ?? null,
     projectNumber: submission.projectNumber,
     project: submission.project,
+    projectLocked: submission.projectId != null,
     workDate: submission.workDate?.toISOString() ?? null,
     accountNumber: submission.accountNumber ?? adminDefaults?.accountNumber ?? null,
     productionCash: submission.productionCash,

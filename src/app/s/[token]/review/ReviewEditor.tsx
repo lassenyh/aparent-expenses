@@ -66,6 +66,8 @@ type InitialData = {
   name: string | null;
   projectNumber: string | null;
   project: string | null;
+  /** The claim came from a project link, so the project cannot be changed. */
+  projectLocked: boolean;
   workDate: string | null;
   accountNumber: string | null;
   productionCash: number | null;
@@ -1173,66 +1175,75 @@ export function ReviewEditor({
               maxLength={11}
             />
           </div>
-          <div className="contents">
-            <div className="col-span-12 min-w-0 sm:col-span-3">
-              <label htmlFor="personinfo-projectNumber" className="mb-1 flex items-center gap-1.5 text-sm text-muted">
-                Prosjektnummer
-                <span className="group relative inline-flex">
-                  <span className="inline-flex cursor-default text-muted hover:text-ink" aria-label="Prosjektnummer finnes i email, eller fås av produsent.">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                      className="h-4 w-4"
-                      aria-hidden
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-7-4a1 1 0 0 1 2 0v1a1 1 0 0 1-2 0V6ZM9 9a.75.75 0 0 0 0 1.5h.253a.25.25 0 0 1 .244.304l-.459 2.066A1.75 1.75 0 0 0 10.747 15H11a.75.75 0 0 0 0-1.5h-.253a.25.25 0 0 1-.244-.304l.459-2.066A1.75 1.75 0 0 0 9.253 9H9Z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  </span>
-                  <span className="pointer-events-none absolute left-1/2 bottom-full z-10 mb-1 -translate-x-1/2 whitespace-nowrap rounded bg-secondary px-2.5 py-1.5 text-xs text-ink opacity-0 shadow transition-opacity duration-150 group-hover:opacity-100">
-                    Prosjektnummer finnes i email, eller fås av produsent.
-                  </span>
-                </span>
-              </label>
-              <input
-                id="personinfo-projectNumber"
-                name="projectNumber"
-                type="number"
-                inputMode="numeric"
-                autoComplete="off"
-                value={projectNumber}
-                onChange={(e) => setProjectNumber(e.target.value)}
-                disabled={isSubmitted}
-                className="min-w-28 w-full h-9 rounded-md border border-control bg-field px-3 text-ink placeholder-faint focus:border-ink focus:outline-none focus:ring-2 focus:ring-ink/10 disabled:opacity-60 sm:min-w-32 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                placeholder="0"
-              />
+          {initialData.projectLocked ? (
+            <div className="col-span-12 min-w-0 sm:col-span-9">
+              <p className="mb-1 text-sm text-muted">Prosjekt</p>
+              <p className="flex h-9 items-center truncate rounded-md border border-line bg-raised px-3 text-ink">
+                {[projectNumber.trim(), project.trim()].filter(Boolean).join(" – ")}
+              </p>
             </div>
-            <div className="col-span-12 min-w-0 sm:col-span-6">
-              <label className="block text-sm text-muted mb-1">
-                Prosjektnavn <span className="text-muted">*</span>
-              </label>
-              <input
-                ref={projectInputRef}
-                id="personinfo-project"
-                name="project"
-                type="text"
-                autoComplete="off"
-                value={project}
-                onChange={(e) => setProject(e.target.value)}
-                disabled={isSubmitted}
-                className={`w-full h-9 rounded-md border bg-field px-3 text-ink placeholder-faint focus:outline-none focus:ring-2 disabled:opacity-60 ${
-                  showFieldErrors && !project.trim()
-                    ? "border-neg focus:border-neg focus:ring-neg/15"
-                    : "border-control focus:border-ink focus:ring-ink/10"
-                }`}
-                placeholder="Prosjektnavn"
-              />
+          ) : (
+            <div className="contents">
+              <div className="col-span-12 min-w-0 sm:col-span-3">
+                <label htmlFor="personinfo-projectNumber" className="mb-1 flex items-center gap-1.5 text-sm text-muted">
+                  Prosjektnummer
+                  <span className="group relative inline-flex">
+                    <span className="inline-flex cursor-default text-muted hover:text-ink" aria-label="Prosjektnummer finnes i email, eller fås av produsent.">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                        className="h-4 w-4"
+                        aria-hidden
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-7-4a1 1 0 0 1 2 0v1a1 1 0 0 1-2 0V6ZM9 9a.75.75 0 0 0 0 1.5h.253a.25.25 0 0 1 .244.304l-.459 2.066A1.75 1.75 0 0 0 10.747 15H11a.75.75 0 0 0 0-1.5h-.253a.25.25 0 0 1-.244-.304l.459-2.066A1.75 1.75 0 0 0 9.253 9H9Z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </span>
+                    <span className="pointer-events-none absolute left-1/2 bottom-full z-10 mb-1 -translate-x-1/2 whitespace-nowrap rounded bg-secondary px-2.5 py-1.5 text-xs text-ink opacity-0 shadow transition-opacity duration-150 group-hover:opacity-100">
+                      Prosjektnummer finnes i email, eller fås av produsent.
+                    </span>
+                  </span>
+                </label>
+                <input
+                  id="personinfo-projectNumber"
+                  name="projectNumber"
+                  type="number"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  value={projectNumber}
+                  onChange={(e) => setProjectNumber(e.target.value)}
+                  disabled={isSubmitted}
+                  className="min-w-28 w-full h-9 rounded-md border border-control bg-field px-3 text-ink placeholder-faint focus:border-ink focus:outline-none focus:ring-2 focus:ring-ink/10 disabled:opacity-60 sm:min-w-32 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  placeholder="0"
+                />
+              </div>
+              <div className="col-span-12 min-w-0 sm:col-span-6">
+                <label className="block text-sm text-muted mb-1">
+                  Prosjektnavn <span className="text-muted">*</span>
+                </label>
+                <input
+                  ref={projectInputRef}
+                  id="personinfo-project"
+                  name="project"
+                  type="text"
+                  autoComplete="off"
+                  value={project}
+                  onChange={(e) => setProject(e.target.value)}
+                  disabled={isSubmitted}
+                  className={`w-full h-9 rounded-md border bg-field px-3 text-ink placeholder-faint focus:outline-none focus:ring-2 disabled:opacity-60 ${
+                    showFieldErrors && !project.trim()
+                      ? "border-neg focus:border-neg focus:ring-neg/15"
+                      : "border-control focus:border-ink focus:ring-ink/10"
+                  }`}
+                  placeholder="Prosjektnavn"
+                />
+              </div>
             </div>
-          </div>
+          )}
           <div className="col-span-12 sm:col-span-3">
             <label htmlFor="personinfo-workDate" className="block text-sm text-muted mb-1">Dato</label>
             <input

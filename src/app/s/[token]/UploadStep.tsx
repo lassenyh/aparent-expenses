@@ -43,10 +43,13 @@ export function UploadStep({
   token,
   receipts: initialReceipts,
   initialInfo,
+  projectLocked,
 }: {
   token: string;
   receipts: ReceiptItem[];
   initialInfo: Omit<SubmissionInfo, "workDate"> & { workDate: string | null };
+  /** The claim came from a project link, so the project cannot be changed. */
+  projectLocked: boolean;
 }) {
   const router = useRouter();
   const [receipts, setReceipts] = useState<ReceiptItem[]>(initialReceipts);
@@ -701,11 +704,12 @@ export function UploadStep({
 
       {error && <p className="text-sm text-neg">{error}</p>}
 
-      {showIntro && <UploadIntro onClose={closeIntro} />}
+      {showIntro && <UploadIntro onClose={closeIntro} projectFilled={projectLocked} />}
 
       {showInfoModal && (
         <SubmissionInfoModal
           initialInfo={info}
+          projectLocked={projectLocked}
           progress={progress}
           continuing={continuing}
           error={continueError}

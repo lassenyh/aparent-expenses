@@ -38,7 +38,25 @@ model Submission {
   deliveryId          String?
   deliveryStartedAt   DateTime?
   submissionStartedAt DateTime?
+  /// Set when the claim was started from a project link; its number and name are then fixed.
+  projectId           String?
+  projectRef          Project?         @relation(fields: [projectId], references: [id], onDelete: SetNull)
   receipts            Receipt[]
+
+  @@index([projectId])
+}
+
+/// A project created in the admin dashboard. Its link (/p/<code>) starts claims with the project filled in.
+model Project {
+  id          String       @id @default(cuid())
+  code        String       @unique
+  number      String?
+  name        String
+  createdAt   DateTime     @default(now())
+  createdBy   String?
+  /// Set when the project is closed; its link then no longer starts claims.
+  closedAt    DateTime?
+  submissions Submission[]
 }
 
 model Receipt {
