@@ -258,127 +258,143 @@ export function UploadStep({
     uploading: uploadingFiles.length,
   };
 
+  const fileType = (r: ReceiptItem) =>
+    isPdf(r.mimeType) ? "PDF" : /heic|heif/i.test(r.mimeType) || /\.hei[cf]$/i.test(r.originalFileName) ? "HEIC" : "BILDE";
+
   return (
-    <div className="w-full min-w-0 max-w-2xl space-y-6">
-      <section className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-4 md:p-6">
-        <div
-          onDrop={handleDrop}
-          onDragOver={handleDragOver}
-          onDragEnter={handleDragEnter}
-          onDragLeave={handleDragLeave}
-          className={`mb-4 rounded-lg border-2 border-dashed p-6 text-center text-neutral-400 transition-colors ${
-            isDraggingOver
-              ? "border-green-500 bg-green-950/20"
-              : "border-neutral-600 bg-neutral-800/50 hover:border-neutral-500"
-          }`}
-        >
-          <p className="mb-2">Dra filer hit eller</p>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*,image/heic,application/pdf"
-            multiple
-            className="hidden"
-            onChange={(e) => {
-              handleFiles(e.target.files);
-              e.target.value = "";
-            }}
-          />
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="rounded-lg bg-neutral-700 px-4 py-2 text-sm text-white hover:bg-neutral-600"
+    <div className="w-full min-w-0 space-y-3">
+      <section className="rounded-lg border border-line bg-surface" aria-label="Kvitteringer">
+        <div className="px-5 pt-5">
+          <div
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+            className={`grid justify-items-center gap-2.5 rounded-lg border border-dashed px-5 py-7 text-center text-muted transition-colors ${
+              isDraggingOver
+                ? "border-solid border-data"
+                : "border-control bg-comment hover:border-control-hover"
+            }`}
           >
-            Velg filer
-          </button>
-          <p className="mt-2 text-xs">Bilder og PDF</p>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5" aria-hidden>
+              <path d="M9.25 13.25a.75.75 0 0 0 1.5 0V4.636l2.955 3.129a.75.75 0 0 0 1.09-1.03l-4.25-4.5a.75.75 0 0 0-1.09 0l-4.25 4.5a.75.75 0 1 0 1.09 1.03L9.25 4.636v8.614Z" />
+              <path d="M3.5 12.75a.75.75 0 0 0-1.5 0v2.5A2.75 2.75 0 0 0 4.75 18h10.5A2.75 2.75 0 0 0 18 15.25v-2.5a.75.75 0 0 0-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5Z" />
+            </svg>
+            <p className="text-sm">Dra filer hit eller</p>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,image/heic,application/pdf"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                handleFiles(e.target.files);
+                e.target.value = "";
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="h-9 rounded-md bg-secondary px-4 text-sm font-medium text-ink hover:bg-secondary-hover"
+            >
+              Velg filer
+            </button>
+            <p className="text-[12.5px]">Bilder og PDF</p>
+          </div>
+
+          {receipts.length === 0 && uploadingFiles.length === 0 ? (
+            <p className="py-4 text-center text-sm text-muted">
+              Ingen kvitteringer lagt til ennå.
+            </p>
+          ) : (
+            <ul className="mt-3">
+              {receipts.map((r) => (
+                <li
+                  key={r.id}
+                  className="grid grid-cols-[36px_minmax(0,1fr)_auto] items-center gap-3 border-t border-rule py-2.5"
+                >
+                  <span
+                    className="grid h-9 w-9 place-items-center rounded-md bg-raised text-[11px] font-semibold tracking-wide text-muted"
+                    aria-hidden
+                  >
+                    {fileType(r)}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-ink" title={r.originalFileName}>
+                      {r.originalFileName}
+                    </p>
+                    {analysis[r.id] === "pending" && (
+                      <p className="text-[12.5px] text-muted">Leser kvitteringen…</p>
+                    )}
+                    {analysis[r.id] === "done" && (
+                      <p className="text-[12.5px] text-muted">Lest</p>
+                    )}
+                    {analysis[r.id] === "error" && (
+                      <p className="text-[12.5px] text-warn-ink">Leses på nytt når du går videre</p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <a
+                      href={r.blobUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex h-[30px] items-center rounded-md px-2.5 text-[13px] text-muted hover:bg-raised hover:text-ink"
+                    >
+                      Åpne
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteReceipt(r.id)}
+                      className="inline-flex h-[30px] items-center rounded-md px-2.5 text-[13px] text-muted hover:bg-neg-soft hover:text-neg"
+                    >
+                      Slett
+                    </button>
+                  </div>
+                </li>
+              ))}
+              {uploadingFiles.map(({ id, fileName }) => (
+                <li
+                  key={id}
+                  className="grid grid-cols-[36px_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1.5 border-t border-rule py-2.5"
+                  role="status"
+                  aria-label={`Laster opp ${fileName}`}
+                >
+                  <span className="grid h-9 w-9 place-items-center rounded-md bg-raised text-muted" aria-hidden>
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+                      <path d="M9.25 13.25a.75.75 0 0 0 1.5 0V4.636l2.955 3.129a.75.75 0 0 0 1.09-1.03l-4.25-4.5a.75.75 0 0 0-1.09 0l-4.25 4.5a.75.75 0 1 0 1.09 1.03L9.25 4.636v8.614Z" />
+                    </svg>
+                  </span>
+                  <p className="min-w-0 truncate text-sm font-medium text-ink" title={fileName}>
+                    {fileName}
+                  </p>
+                  <span className="text-[12.5px] text-muted">Laster opp…</span>
+                  <div className="col-start-2 col-end-4 h-1 overflow-hidden rounded bg-raised">
+                    <div className="h-full w-[34%] rounded bg-load animate-analyze-progress" aria-hidden />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
-        <ul className="space-y-2">
-          {receipts.map((r) => (
-            <li
-              key={r.id}
-              className="flex items-center gap-3 rounded-lg border border-neutral-700 bg-neutral-800/50 px-3 py-2"
-            >
-              <span className="text-xl shrink-0">
-                {isPdf(r.mimeType) ? "📄" : "🖼️"}
-              </span>
-              <div className="min-w-0 flex-1 overflow-hidden">
-                <p className="truncate text-sm text-white" title={r.originalFileName}>
-                  {r.originalFileName}
-                </p>
-                {analysis[r.id] === "pending" && (
-                  <p className="text-xs text-neutral-500">Leser kvitteringen…</p>
-                )}
-                {analysis[r.id] === "done" && (
-                  <p className="text-xs text-neutral-500">Lest</p>
-                )}
-                {analysis[r.id] === "error" && (
-                  <p className="text-xs text-amber-300/90">Leses på nytt når du går videre</p>
-                )}
-              </div>
-              <a
-                href={r.blobUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded px-2 py-1 text-sm text-neutral-400 hover:text-white hover:bg-neutral-700"
-              >
-                Åpne
-              </a>
-              <button
-                type="button"
-                onClick={() => handleDeleteReceipt(r.id)}
-                className="rounded px-2 py-1 text-sm text-red-400 hover:bg-red-500/20"
-              >
-                Slett
-              </button>
-            </li>
-          ))}
-          {uploadingFiles.map(({ id, fileName }) => (
-            <li
-              key={id}
-              className="flex flex-col gap-2 rounded-lg border border-neutral-700 bg-neutral-800/50 px-3 py-2"
-              role="status"
-              aria-label={`Laster opp ${fileName}`}
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <span className="text-xl opacity-70 shrink-0">📤</span>
-                <p className="min-w-0 flex-1 truncate text-sm text-neutral-300" title={fileName}>
-                  {fileName}
-                </p>
-                <span className="text-xs text-neutral-500 shrink-0">
-                  Laster opp…
-                </span>
-              </div>
-              <div className="h-1.5 w-full overflow-hidden rounded-full bg-neutral-700">
-                <div
-                  className="h-full min-w-[30%] rounded-full bg-green-600 animate-analyze-progress"
-                  aria-hidden
-                />
-              </div>
-            </li>
-          ))}
-        </ul>
-        {receipts.length === 0 && uploadingFiles.length === 0 && (
-          <p className="text-center text-sm text-neutral-500">
-            Ingen kvitteringer lagt til ennå.
-          </p>
-        )}
+        <div className="mt-1 flex flex-wrap items-center justify-between gap-3 border-t border-rule px-5 py-3.5">
+          <span className="text-[13px] text-muted">
+            {receipts.length > 0
+              ? `${receipts.length} ${receipts.length === 1 ? "kvittering" : "kvitteringer"}`
+              : "Legg til minst én kvittering"}
+          </span>
+          <button
+            type="button"
+            onClick={handleOpenInfo}
+            disabled={receipts.length === 0 && uploadingFiles.length === 0}
+            className="h-9 rounded-md bg-primary px-4 text-sm font-medium text-primary-fg hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            Gå videre
+          </button>
+        </div>
       </section>
 
-      <div className="flex flex-col items-center gap-3">
-        <button
-          type="button"
-          onClick={handleOpenInfo}
-          disabled={receipts.length === 0 && uploadingFiles.length === 0}
-          className="rounded-lg bg-green-700 px-4 py-2 text-sm font-medium text-white hover:bg-green-600 disabled:opacity-50"
-        >
-          Gå videre
-        </button>
-        {error && (
-          <p className="text-sm text-red-400">{error}</p>
-        )}
-      </div>
+      {error && <p className="text-sm text-neg">{error}</p>}
 
       {showInfoModal && (
         <SubmissionInfoModal

@@ -33,14 +33,14 @@ export function PreviewPopup({ token }: { token: string }) {
 
   if (data === null) {
     return (
-      <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-neutral-100 p-6">
-        <p className="text-center text-neutral-600">
+      <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-ground p-6">
+        <p className="text-center text-muted">
           Ingen forhåndsvisningsdata. Åpne forhåndsvisning fra gjennomgangssiden.
         </p>
         <button
           type="button"
           onClick={() => window.close()}
-          className="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+          className="h-9 rounded-md bg-secondary px-4 text-sm font-medium text-ink hover:bg-secondary-hover"
         >
           Lukk vindu
         </button>
@@ -49,21 +49,21 @@ export function PreviewPopup({ token }: { token: string }) {
   }
 
   return (
-    <main className="min-h-screen bg-neutral-100">
-      <div className="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-neutral-200 bg-white px-4 py-2 shadow-sm">
-        <h1 className="text-sm font-medium text-neutral-700">
+    <main className="min-h-screen bg-ground">
+      <div className="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-line bg-surface px-4 py-2.5 md:px-5">
+        <h1 className="text-sm font-medium text-ink">
           Forhåndsvis av utleggsskjema
         </h1>
         <button
           type="button"
           onClick={() => window.close()}
-          className="rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+          className="h-9 rounded-md bg-secondary px-4 text-sm font-medium text-ink hover:bg-secondary-hover"
         >
           Lukk
         </button>
       </div>
       <div className="overflow-auto p-4">
-        <div className="mx-auto max-w-[720px] rounded-lg bg-white shadow">
+        <div className="mx-auto max-w-[760px] overflow-hidden rounded-md border border-line bg-white">
           <ExpensePdfLayout
             submission={data.submission}
             receipts={data.receipts}

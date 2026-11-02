@@ -23,18 +23,18 @@ export function SubmitEmailErrorNotice() {
 
   return (
     <div
-      className="mb-6 max-w-md rounded-lg border border-amber-600/60 bg-amber-950/40 px-4 py-3 text-center text-sm text-amber-200"
+      className="mb-6 max-w-md rounded-lg border border-warn-line bg-warn-bg px-4 py-3 text-center text-sm text-warn-ink"
       role="alert"
     >
-      <p className="font-medium text-amber-100">E-post ble ikke sendt</p>
-      <p className="mt-1 text-amber-200/90">{message}</p>
-      <p className="mt-2 text-xs text-amber-300/80">
+      <p className="font-medium">E-post ble ikke sendt</p>
+      <p className="mt-1">{message}</p>
+      <p className="mt-2 text-xs opacity-90">
         Verifiser domenet på{" "}
         <a
           href="https://resend.com/domains"
           target="_blank"
           rel="noopener noreferrer"
-          className="underline hover:text-amber-100"
+          className="underline hover:opacity-80"
         >
           resend.com/domains
         </a>{" "}

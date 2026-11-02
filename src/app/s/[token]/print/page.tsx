@@ -24,14 +24,14 @@ export default async function PrintPreviewPage(props: PageProps) {
 
   if (submission.status === "DRAFT") {
     return (
-      <main className="min-h-screen bg-neutral-950 p-10 text-white">
-        <p className="text-neutral-400">
+      <main className="min-h-screen bg-ground p-10 text-ink">
+        <p className="text-muted">
           Fullfør gjennomgang og send inn utlegg først, eller bruk
           forhåndsvisning med demo-data.
         </p>
         <a
           href={`/s/${token}/review`}
-          className="mt-4 inline-block text-neutral-300 underline"
+          className="mt-4 inline-block text-ink underline underline-offset-2"
         >
           Tilbake til gjennomgang
         </a>

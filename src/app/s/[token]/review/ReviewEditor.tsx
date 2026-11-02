@@ -60,6 +60,12 @@ function formatNok(cents: number): string {
   return `${(cents / 100).toFixed(2)} kr`;
 }
 
+function diffShort(diffCents: number): string {
+  if (diffCents > 0) return "Aparent skylder deg";
+  if (diffCents < 0) return "Du skylder Aparent";
+  return "I balanse";
+}
+
 function diffLabel(diffCents: number): string {
   if (diffCents > 0) return "Til utbetaling (Aparent skylder deg)";
   if (diffCents < 0) return "Tilbakebetaling (du skylder Aparent)";
@@ -635,22 +641,77 @@ export function ReviewEditor({
 
   const showSuccessOnly = submitSuccess || (isSubmitted && displayPdfUrl);
 
+  const openFormPreview = () => {
+    const payload = {
+      submission: {
+        name: name || null,
+        projectNumber: projectNumber.trim() || null,
+        project: project.trim() || null,
+        workDate: workDate ? `${workDate}T12:00:00.000Z` : null,
+        accountNumber: accountNumber.trim() || null,
+        productionCashCents,
+      },
+      receipts: receipts.map((r) => ({
+        summary: r.extractedSummary ?? "Kvittering",
+        amountCents: r.extractedTotalCents ?? 0,
+        comment: r.comment ?? null,
+        originalAmountCents: r.originalAmountCents ?? null,
+        extractedCurrency: r.extractedCurrency ?? null,
+      })),
+      totals: { totalCents, productionCashCents, diffCents },
+    };
+    try {
+      sessionStorage.setItem(
+        `${PREVIEW_STORAGE_KEY}-${token}`,
+        JSON.stringify(payload)
+      );
+      window.open(
+        `/s/${token}/preview`,
+        "_blank",
+        "width=720,height=900,scrollbars=yes,resizable=yes"
+      );
+    } catch {
+      // sessionStorage can throw in private mode
+    }
+  };
+
+  const sendButton = (className: string) => (
+    <button
+      type="button"
+      onClick={handleOpenConfirmModal}
+      disabled={submitting}
+      aria-busy={submitting}
+      className={`inline-flex items-center justify-center gap-2 rounded-md bg-primary text-sm font-medium text-primary-fg hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+    >
+      {submitting && (
+        <span
+          className="inline-block h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent"
+          aria-hidden
+        />
+      )}
+      <span>{submitting ? "Sender inn…" : "Send inn"}</span>
+    </button>
+  );
+
   return (
     <>
-    <div className="max-w-4xl space-y-8">
+    <div className="grid w-full gap-4">
       {showSuccessOnly ? (
         <>
-          <section className="rounded-xl border border-green-800 bg-green-950/30 p-6">
-            <p className="text-green-400 font-medium mb-2">
-            Utlegget er sendt inn. Vennligst last ned PDF for egen kopi.
+          <section className="grid gap-5 rounded-lg border border-line bg-surface p-6">
+            <p className="flex items-center gap-2 text-sm font-medium text-pos">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 shrink-0" aria-hidden>
+                <path fillRule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.857-9.809a.75.75 0 0 0-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 1 0-1.06 1.061l2.5 2.5a.75.75 0 0 0 1.137-.089l4-5.5Z" clipRule="evenodd" />
+              </svg>
+              Utlegget er sendt inn. Vennligst last ned PDF for egen kopi.
             </p>
             {displayPdfUrl && (
-              <div className="flex flex-wrap gap-3">
+              <div className="flex flex-wrap gap-2">
                 <a
                   href={`/api/submissions/${token}/pdf`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-block rounded-lg bg-green-700 px-4 py-2 text-sm font-medium text-white hover:bg-green-600"
+                  className="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-fg hover:bg-primary-hover"
                 >
                   Last ned PDF
                 </a>
@@ -658,18 +719,18 @@ export function ReviewEditor({
                   href={`/s/${token}/print`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-block rounded-lg border border-neutral-600 bg-neutral-800 px-4 py-2 text-sm font-medium text-neutral-200 hover:bg-neutral-700"
+                  className="inline-flex h-9 items-center rounded-md bg-secondary px-4 text-sm font-medium text-ink hover:bg-secondary-hover"
                 >
                   Forhåndsvis / Skriv ut
                 </a>
               </div>
             )}
           </section>
-          <p className="text-sm text-neutral-400">
+          <p className="text-sm text-muted">
             Har du spørsmål vedrørende utlegg, kan disse rettes til{" "}
             <a
               href="mailto:utlegg@aparent.tv"
-              className="text-neutral-300 underline hover:text-white"
+              className="text-ink underline hover:opacity-80"
             >
               utlegg@aparent.tv
             </a>
@@ -677,58 +738,60 @@ export function ReviewEditor({
         </>
       ) : (
         <>
+      <div className="grid items-start gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="grid min-w-0 gap-3">
       {!infoExpanded ? (
-      <section className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-6">
+      <section className="rounded-lg border border-line bg-surface p-5">
         <div className="mb-4 flex items-center justify-between gap-3">
-          <h2 className="text-lg font-medium text-neutral-200">
+          <h2 className="text-[15px] font-semibold text-ink">
             Person- og prosjektinfo
           </h2>
           <button
             type="button"
             onClick={() => setInfoExpanded(true)}
-            className="rounded-lg border border-neutral-600 bg-neutral-800 px-3 py-1.5 text-sm text-neutral-300 hover:border-neutral-500 hover:bg-neutral-700 hover:text-white"
+            className="rounded-md bg-secondary px-3 py-1.5 text-sm font-medium text-ink hover:bg-secondary-hover"
           >
             Endre
           </button>
         </div>
         <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
           <div>
-            <dt className="text-neutral-400">Navn</dt>
-            <dd className="text-white">{name}</dd>
+            <dt className="text-muted">Navn</dt>
+            <dd className="text-ink">{name}</dd>
           </div>
           <div>
-            <dt className="text-neutral-400">Kontonummer</dt>
-            <dd className="text-white tabular-nums">{accountNumber}</dd>
+            <dt className="text-muted">Kontonummer</dt>
+            <dd className="text-ink tabular-nums">{accountNumber}</dd>
           </div>
           <div>
-            <dt className="text-neutral-400">Prosjekt</dt>
-            <dd className="text-white">
+            <dt className="text-muted">Prosjekt</dt>
+            <dd className="text-ink">
               {[projectNumber.trim(), project.trim()].filter(Boolean).join(" – ")}
             </dd>
           </div>
           <div>
-            <dt className="text-neutral-400">Dato</dt>
-            <dd className="text-white tabular-nums">
+            <dt className="text-muted">Dato</dt>
+            <dd className="text-ink tabular-nums">
               {workDate ? workDate.split("-").reverse().join(".") : "Ikke oppgitt"}
             </dd>
           </div>
           <div>
-            <dt className="text-neutral-400">Prod.penger / forskudd</dt>
-            <dd className="text-white tabular-nums">
+            <dt className="text-muted">Prod.penger / forskudd</dt>
+            <dd className="text-ink tabular-nums">
               {productionCash.trim() === "" ? "Ikke oppgitt" : formatNok(productionCashCents)}
             </dd>
           </div>
         </dl>
       </section>
       ) : (
-      <section className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-6">
-        <h2 className="text-lg font-medium text-neutral-200 mb-4">
+      <section className="rounded-lg border border-line bg-surface p-5">
+        <h2 className="mb-4 text-[15px] font-semibold text-ink">
           Person- og prosjektinfo
         </h2>
-        <div className="grid gap-4">
-          <div>
-            <label htmlFor="personinfo-name" className="block text-sm text-neutral-400 mb-1">
-              Navn <span className="text-neutral-500">*</span>
+        <div className="grid grid-cols-12 gap-x-3 gap-y-4">
+          <div className="col-span-12 sm:col-span-6">
+            <label htmlFor="personinfo-name" className="block text-sm text-muted mb-1">
+              Navn <span className="text-muted">*</span>
             </label>
             <input
               ref={nameInputRef}
@@ -739,92 +802,17 @@ export function ReviewEditor({
               value={name}
               onChange={(e) => setName(e.target.value)}
               disabled={isSubmitted}
-              className={`w-full rounded-lg border bg-neutral-800 px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 disabled:opacity-60 ${
+              className={`w-full h-9 rounded-md border bg-field px-3 text-ink placeholder-faint focus:outline-none focus:ring-2 disabled:opacity-60 ${
                 showFieldErrors && !name.trim()
-                  ? "border-red-500 focus:border-red-500 focus:ring-red-500"
-                  : "border-neutral-700 focus:border-neutral-500 focus:ring-neutral-500"
+                  ? "border-neg focus:border-neg focus:ring-neg/15"
+                  : "border-control focus:border-ink focus:ring-ink/10"
               }`}
               placeholder="Fullt navn"
             />
           </div>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-[auto_1fr]">
-            <div className="min-w-0">
-              <label htmlFor="personinfo-projectNumber" className="mb-1 flex items-center gap-1.5 text-sm text-neutral-400">
-                Prosjektnummer
-                <span className="group relative inline-flex">
-                  <span className="inline-flex cursor-default text-neutral-500 hover:text-neutral-300" aria-label="Prosjektnummer finnes i email, eller fås av produsent.">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                      className="h-4 w-4"
-                      aria-hidden
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-7-4a1 1 0 0 1 2 0v1a1 1 0 0 1-2 0V6ZM9 9a.75.75 0 0 0 0 1.5h.253a.25.25 0 0 1 .244.304l-.459 2.066A1.75 1.75 0 0 0 10.747 15H11a.75.75 0 0 0 0-1.5h-.253a.25.25 0 0 1-.244-.304l.459-2.066A1.75 1.75 0 0 0 9.253 9H9Z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  </span>
-                  <span className="pointer-events-none absolute left-1/2 bottom-full z-10 mb-1 -translate-x-1/2 whitespace-nowrap rounded bg-neutral-700 px-2.5 py-1.5 text-xs text-white opacity-0 shadow transition-opacity duration-150 group-hover:opacity-100">
-                    Prosjektnummer finnes i email, eller fås av produsent.
-                  </span>
-                </span>
-              </label>
-              <input
-                id="personinfo-projectNumber"
-                name="projectNumber"
-                type="number"
-                inputMode="numeric"
-                autoComplete="off"
-                value={projectNumber}
-                onChange={(e) => setProjectNumber(e.target.value)}
-                disabled={isSubmitted}
-                className="min-w-28 w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-white placeholder-neutral-500 focus:border-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-500 disabled:opacity-60 sm:min-w-32 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                placeholder="0"
-              />
-            </div>
-            <div className="min-w-0">
-              <label className="block text-sm text-neutral-400 mb-1">
-                Prosjektnavn <span className="text-neutral-500">*</span>
-              </label>
-              <input
-                ref={projectInputRef}
-                id="personinfo-project"
-                name="project"
-                type="text"
-                autoComplete="off"
-                value={project}
-                onChange={(e) => setProject(e.target.value)}
-                disabled={isSubmitted}
-                className={`w-full rounded-lg border bg-neutral-800 px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 disabled:opacity-60 ${
-                  showFieldErrors && !project.trim()
-                    ? "border-red-500 focus:border-red-500 focus:ring-red-500"
-                    : "border-neutral-700 focus:border-neutral-500 focus:ring-neutral-500"
-                }`}
-                placeholder="Prosjektnavn"
-              />
-            </div>
-          </div>
-          <div>
-            <label htmlFor="personinfo-workDate" className="block text-sm text-neutral-400 mb-1">Dato</label>
-            <input
-              ref={workDateInputRef}
-              id="personinfo-workDate"
-              name="workDate"
-              type="date"
-              autoComplete="off"
-              value={workDate}
-              onChange={(e) => setWorkDate(e.target.value)}
-              onClick={() => workDateInputRef.current?.showPicker?.()}
-              disabled={isSubmitted}
-              className="h-8 w-full max-w-[12rem] md:max-w-none rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-1 text-white focus:border-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-500 disabled:opacity-60 cursor-pointer"
-            />
-          </div>
-          <div>
-            <label htmlFor="personinfo-accountNumber" className="block text-sm text-neutral-400 mb-1">
-              Kontonummer (11 sifre) <span className="text-neutral-500">*</span>
+          <div className="col-span-12 sm:col-span-6">
+            <label htmlFor="personinfo-accountNumber" className="block text-sm text-muted mb-1">
+              Kontonummer (11 sifre) <span className="text-muted">*</span>
             </label>
             <input
               ref={accountInputRef}
@@ -840,17 +828,92 @@ export function ReviewEditor({
               }}
               onBlur={validateAccount}
               disabled={isSubmitted}
-              className={`w-full rounded-lg border bg-neutral-800 px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 disabled:opacity-60 ${
+              className={`w-full h-9 rounded-md border bg-field px-3 text-ink placeholder-faint focus:outline-none focus:ring-2 disabled:opacity-60 ${
                 accountError
-                  ? "border-red-500 focus:border-red-500 focus:ring-red-500"
-                  : "border-neutral-700 focus:border-neutral-500 focus:ring-neutral-500"
+                  ? "border-neg focus:border-neg focus:ring-neg/15"
+                  : "border-control focus:border-ink focus:ring-ink/10"
               }`}
               placeholder="11 sifre"
               maxLength={11}
             />
           </div>
-          <div>
-            <label htmlFor="personinfo-productionCash" className="block text-sm text-neutral-400 mb-1">
+          <div className="contents">
+            <div className="col-span-12 min-w-0 sm:col-span-3">
+              <label htmlFor="personinfo-projectNumber" className="mb-1 flex items-center gap-1.5 text-sm text-muted">
+                Prosjektnummer
+                <span className="group relative inline-flex">
+                  <span className="inline-flex cursor-default text-muted hover:text-ink" aria-label="Prosjektnummer finnes i email, eller fås av produsent.">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                      className="h-4 w-4"
+                      aria-hidden
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-7-4a1 1 0 0 1 2 0v1a1 1 0 0 1-2 0V6ZM9 9a.75.75 0 0 0 0 1.5h.253a.25.25 0 0 1 .244.304l-.459 2.066A1.75 1.75 0 0 0 10.747 15H11a.75.75 0 0 0 0-1.5h-.253a.25.25 0 0 1-.244-.304l.459-2.066A1.75 1.75 0 0 0 9.253 9H9Z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  </span>
+                  <span className="pointer-events-none absolute left-1/2 bottom-full z-10 mb-1 -translate-x-1/2 whitespace-nowrap rounded bg-secondary px-2.5 py-1.5 text-xs text-ink opacity-0 shadow transition-opacity duration-150 group-hover:opacity-100">
+                    Prosjektnummer finnes i email, eller fås av produsent.
+                  </span>
+                </span>
+              </label>
+              <input
+                id="personinfo-projectNumber"
+                name="projectNumber"
+                type="number"
+                inputMode="numeric"
+                autoComplete="off"
+                value={projectNumber}
+                onChange={(e) => setProjectNumber(e.target.value)}
+                disabled={isSubmitted}
+                className="min-w-28 w-full h-9 rounded-md border border-control bg-field px-3 text-ink placeholder-faint focus:border-ink focus:outline-none focus:ring-2 focus:ring-ink/10 disabled:opacity-60 sm:min-w-32 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                placeholder="0"
+              />
+            </div>
+            <div className="col-span-12 min-w-0 sm:col-span-6">
+              <label className="block text-sm text-muted mb-1">
+                Prosjektnavn <span className="text-muted">*</span>
+              </label>
+              <input
+                ref={projectInputRef}
+                id="personinfo-project"
+                name="project"
+                type="text"
+                autoComplete="off"
+                value={project}
+                onChange={(e) => setProject(e.target.value)}
+                disabled={isSubmitted}
+                className={`w-full h-9 rounded-md border bg-field px-3 text-ink placeholder-faint focus:outline-none focus:ring-2 disabled:opacity-60 ${
+                  showFieldErrors && !project.trim()
+                    ? "border-neg focus:border-neg focus:ring-neg/15"
+                    : "border-control focus:border-ink focus:ring-ink/10"
+                }`}
+                placeholder="Prosjektnavn"
+              />
+            </div>
+          </div>
+          <div className="col-span-12 sm:col-span-3">
+            <label htmlFor="personinfo-workDate" className="block text-sm text-muted mb-1">Dato</label>
+            <input
+              ref={workDateInputRef}
+              id="personinfo-workDate"
+              name="workDate"
+              type="date"
+              autoComplete="off"
+              value={workDate}
+              onChange={(e) => setWorkDate(e.target.value)}
+              onClick={() => workDateInputRef.current?.showPicker?.()}
+              disabled={isSubmitted}
+              className="h-9 w-full rounded-md border border-control bg-field px-3 py-1 text-ink focus:border-ink focus:outline-none focus:ring-2 focus:ring-ink/10 disabled:opacity-60 cursor-pointer"
+            />
+          </div>
+          <div className="col-span-12 sm:col-span-6">
+            <label htmlFor="personinfo-productionCash" className="block text-sm text-muted mb-1">
               Prod.penger / forskudd (NOK)
             </label>
             <input
@@ -862,7 +925,7 @@ export function ReviewEditor({
               value={productionCash}
               onChange={(e) => setProductionCash(e.target.value)}
               disabled={isSubmitted}
-              className="w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-white placeholder-neutral-500 focus:border-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-500 disabled:opacity-60 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              className="w-full h-9 rounded-md border border-control bg-field px-3 text-ink placeholder-faint focus:border-ink focus:outline-none focus:ring-2 focus:ring-ink/10 disabled:opacity-60 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               placeholder="0"
             />
           </div>
@@ -871,10 +934,8 @@ export function ReviewEditor({
       )}
 
       <section
-        className={`rounded-xl border-2 border-dashed p-6 transition-colors ${
-          !isSubmitted && isDraggingOverReceipts
-            ? "border-green-500 bg-green-950/20"
-            : "border-neutral-800 bg-neutral-900/50"
+        className={`rounded-lg border bg-surface p-5 transition-colors ${
+          !isSubmitted && isDraggingOverReceipts ? "border-data" : "border-line"
         }`}
         onDrop={
           !isSubmitted
@@ -914,37 +975,40 @@ export function ReviewEditor({
             : undefined
         }
       >
-        <h2 className="text-lg font-medium text-neutral-200 mb-4">
-          Kvitteringer
-        </h2>
+        <div className="mb-4">
+          <h2 className="text-[15px] font-semibold text-ink">Kvitteringer</h2>
+          <p className="mt-0.5 text-sm text-muted">
+            {receipts.length} bilag. Kontroller beskrivelse og beløp mot hvert bilag før du sender inn.
+          </p>
+        </div>
         <div className="w-full text-sm">
           {/* Desktop: column headers (hidden on mobile) */}
-          <div className="hidden md:grid md:grid-cols-[auto_1fr_auto_auto] md:gap-2 md:border-b md:border-neutral-700 md:pb-2 md:text-left md:text-neutral-400">
-            <div className="w-8">#</div>
+          <div className="hidden text-xs text-muted md:grid md:grid-cols-[auto_1fr_auto_auto] md:gap-2 md:border-b md:border-rule md:pb-2 md:text-left">
+            <div className="w-6">#</div>
             <div>Beskrivelse</div>
             <div className="text-right w-28">Beløp</div>
-            <div className="text-right">Handlinger</div>
+            <div className="w-[4.25rem] text-right"><span className="sr-only">Handlinger</span></div>
           </div>
           {receipts.flatMap((r, i) => {
                 const isPending =
                   addingReceipts && r.extractedSummary == null;
                 if (isPending) {
                   return [
-                    <div key={r.id} className="border-b border-neutral-800 py-3">
+                    <div key={r.id} className="border-b border-rule py-3">
                       <div className="flex items-center gap-3">
-                        <span className="text-neutral-500 text-sm shrink-0">
+                        <span className="text-muted text-sm shrink-0">
                           {i + 1}.
                         </span>
                         <div className="flex-1 min-w-0">
-                          <div className="h-2 w-full overflow-hidden rounded-full bg-neutral-800">
+                          <div className="h-1.5 w-full overflow-hidden rounded-full bg-raised">
                             <div
-                              className="h-full min-w-[30%] rounded-full bg-green-600 animate-analyze-progress"
+                              className="h-full min-w-[30%] rounded-full bg-load animate-analyze-progress"
                               role="progressbar"
                               aria-valuetext="Laster opp og analyserer"
                             />
                           </div>
                         </div>
-                        <span className="text-xs text-neutral-400 shrink-0">
+                        <span className="text-xs text-muted shrink-0">
                           Laster opp og analyserer…
                         </span>
                       </div>
@@ -1020,12 +1084,12 @@ export function ReviewEditor({
                 return [
                   <div
                     key={r.id}
-                    className={`grid grid-cols-1 md:grid-cols-[auto_1fr_auto_auto] md:gap-2 md:items-start gap-2 py-3 md:py-2 ${showComment ? "" : "border-b border-neutral-800"}`}
+                    className={`grid grid-cols-1 md:grid-cols-[auto_1fr_auto_auto] md:gap-2 md:items-start gap-2 py-3 md:py-2 ${showComment ? "" : "border-b border-rule"}`}
                   >
                     {/* Mobile: row1 = # + description only, row2 = amount + NOK + icons. Desktop: grid cells */}
                     <div className="flex flex-col gap-1.5 md:contents">
                       <div className="flex items-center gap-1 min-w-0 flex-wrap md:contents md:gap-2">
-                        <span className="w-4 shrink-0 text-neutral-500 text-sm md:w-6 md:text-base md:pt-0.5">{i + 1}</span>
+                        <span className="w-4 shrink-0 text-muted text-sm md:w-6 md:text-base md:pt-0.5">{i + 1}</span>
                         <div className="min-w-0 flex-1 flex flex-col gap-1 md:col-span-1 md:flex-row md:flex-wrap md:items-center">
                           <input
                             type="text"
@@ -1036,18 +1100,18 @@ export function ReviewEditor({
                               })
                             }
                             disabled={isSubmitted}
-                            className="min-w-0 flex-1 h-8 rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-white focus:border-neutral-500 focus:outline-none w-full min-w-0"
+                            className="min-w-0 flex-1 h-8 w-full rounded-md border border-transparent bg-transparent px-2 py-1 font-medium text-ink hover:border-control focus:border-ink focus:bg-field focus:outline-none"
                             placeholder="Beskrivelse"
                           />
                           {r.originalAmountCents != null &&
                             r.extractedCurrency &&
                             r.extractedCurrency.toUpperCase() !== "NOK" && (
-                              <span className="shrink-0 text-xs text-neutral-400 whitespace-nowrap">
+                              <span className="shrink-0 text-xs text-muted whitespace-nowrap">
                                 {(r.originalAmountCents / 100).toFixed(2)} {currencyDisplay(r.extractedCurrency)}
                               </span>
                             )}
                           {activeFlags.includes("MEAL") && (
-                            <span className="hidden md:inline-flex items-center gap-1 rounded bg-amber-900/50 pl-1.5 pr-0.5 py-0.5 text-xs text-amber-200">
+                            <span className="hidden md:inline-flex items-center gap-1 rounded-full bg-pill pl-2 pr-0.5 py-0.5 text-xs font-medium text-pill-ink">
                               Mat/drikke
                               {!isSubmitted && (
                                 <button
@@ -1082,7 +1146,7 @@ export function ReviewEditor({
                                       // ignore
                                     }
                                   }}
-                                  className="rounded p-0.5 hover:bg-amber-800/50 text-amber-200 hover:text-white"
+                                  className="rounded-full p-0.5 text-faint hover:bg-control hover:text-ink"
                                   title="Fjern tag"
                                   aria-label="Fjern Mat/drikke"
                                 >
@@ -1094,7 +1158,7 @@ export function ReviewEditor({
                             </span>
                           )}
                           {activeFlags.includes("TRANSPORT") && (
-                            <span className="hidden md:inline-flex items-center gap-1 rounded bg-sky-900/50 pl-1.5 pr-0.5 py-0.5 text-xs text-sky-200">
+                            <span className="hidden md:inline-flex items-center gap-1 rounded-full bg-pill pl-2 pr-0.5 py-0.5 text-xs font-medium text-pill-ink">
                               Reisekostnader
                               {!isSubmitted && (
                                 <button
@@ -1129,7 +1193,7 @@ export function ReviewEditor({
                                       // ignore
                                     }
                                   }}
-                                  className="rounded p-0.5 hover:bg-sky-800/50 text-sky-200 hover:text-white"
+                                  className="rounded-full p-0.5 text-faint hover:bg-control hover:text-ink"
                                   title="Fjern tag"
                                   aria-label="Fjern Reisekostnader"
                                 >
@@ -1152,7 +1216,7 @@ export function ReviewEditor({
                                   return next;
                                 });
                               }}
-                              className="hidden md:block text-left text-xs text-gray-500 hover:underline mt-0.5 w-full"
+                              className="hidden md:block mt-0.5 w-fit text-left text-xs text-muted underline decoration-control underline-offset-2 hover:text-ink"
                             >
                               Legg til kommentar
                             </button>
@@ -1162,21 +1226,21 @@ export function ReviewEditor({
                         <div className="hidden md:flex h-8 items-center justify-end gap-1">
                           <input
                             {...amountInputProps}
-                            className={`h-8 w-28 rounded border bg-neutral-800 px-2 py-1 text-right text-white focus:outline-none ${
+                            className={`h-8 w-28 rounded-md border bg-field px-2 py-1 text-right font-semibold text-ink focus:outline-none ${
                               showAmountErrors &&
                               r.extractedTotalCents == null
-                                ? "border-red-500 focus:border-red-500"
-                                : "border-neutral-700 focus:border-neutral-500"
+                                ? "border-neg focus:border-neg"
+                                : "border-control focus:border-ink"
                             }`}
                           />
-                          <span className="text-xs text-neutral-500 shrink-0">NOK</span>
+                          <span className="text-xs text-muted shrink-0">NOK</span>
                         </div>
                         {/* Desktop: preview + trash in grid column 4 */}
                         <div className="hidden md:flex h-8 items-center justify-end gap-1 shrink-0 md:col-start-4">
                           <button
                             type="button"
                             onClick={() => setPreviewReceipt(r)}
-                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border border-neutral-600 bg-neutral-800 px-2 py-1 text-neutral-300 hover:border-neutral-500 hover:text-white focus:border-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-500"
+                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-control bg-surface text-muted hover:border-control-hover hover:text-ink focus:border-ink focus:outline-none"
                             title="Vis bilag"
                             aria-label="Vis bilag"
                           >
@@ -1189,7 +1253,7 @@ export function ReviewEditor({
                               type="button"
                               onClick={() => handleDeleteReceipt(r.id)}
                               disabled={deletingId === r.id}
-                              className="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-neutral-600 bg-neutral-800 text-neutral-400 hover:border-red-500/50 hover:bg-red-950/30 hover:text-red-400 focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500 disabled:opacity-50"
+                              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-control bg-surface text-muted hover:border-neg hover:bg-neg-soft hover:text-neg focus:border-neg focus:outline-none disabled:opacity-50"
                               title="Fjern bilag"
                               aria-label="Fjern bilag"
                             >
@@ -1203,7 +1267,7 @@ export function ReviewEditor({
                       {/* Mobile only: Mat/drikke på egen linje under beskrivelse (gir mer plass til beløp + ikoner) */}
                       {activeFlags.includes("MEAL") && (
                         <div className="flex items-center gap-2 md:hidden pl-5">
-                          <span className="inline-flex items-center gap-1 rounded bg-amber-900/50 pl-1.5 pr-0.5 py-0.5 text-xs text-amber-200 shrink-0">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-pill pl-2 pr-0.5 py-0.5 text-xs font-medium text-pill-ink shrink-0">
                             Mat/drikke
                             {!isSubmitted && (
                               <button
@@ -1238,7 +1302,7 @@ export function ReviewEditor({
                                     // ignore
                                   }
                                 }}
-                                className="rounded p-0.5 hover:bg-amber-800/50 text-amber-200 hover:text-white"
+                                className="rounded-full p-0.5 text-faint hover:bg-control hover:text-ink"
                                 title="Fjern tag"
                                 aria-label="Fjern Mat/drikke"
                               >
@@ -1252,7 +1316,7 @@ export function ReviewEditor({
                       )}
                       {activeFlags.includes("TRANSPORT") && (
                         <div className="flex items-center gap-2 md:hidden pl-5">
-                          <span className="inline-flex items-center gap-1 rounded bg-sky-900/50 pl-1.5 pr-0.5 py-0.5 text-xs text-sky-200 shrink-0">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-pill pl-2 pr-0.5 py-0.5 text-xs font-medium text-pill-ink shrink-0">
                             Reisekostnader
                             {!isSubmitted && (
                               <button
@@ -1287,7 +1351,7 @@ export function ReviewEditor({
                                     // ignore
                                   }
                                 }}
-                                className="rounded p-0.5 hover:bg-sky-800/50 text-sky-200 hover:text-white"
+                                className="rounded-full p-0.5 text-faint hover:bg-control hover:text-ink"
                                 title="Fjern tag"
                                 aria-label="Fjern Reisekostnader"
                               >
@@ -1304,20 +1368,20 @@ export function ReviewEditor({
                         <div className="flex h-8 items-center gap-1">
                           <input
                             {...amountInputProps}
-                            className={`h-8 w-24 rounded border bg-neutral-800 px-2 py-1 text-right text-white focus:outline-none ${
+                            className={`h-8 w-24 rounded-md border bg-field px-2 py-1 text-right font-semibold text-ink focus:outline-none ${
                               showAmountErrors &&
                               r.extractedTotalCents == null
-                                ? "border-red-500 focus:border-red-500"
-                                : "border-neutral-700 focus:border-neutral-500"
+                                ? "border-neg focus:border-neg"
+                                : "border-control focus:border-ink"
                             }`}
                           />
-                          <span className="text-xs text-neutral-500 shrink-0">NOK</span>
+                          <span className="text-xs text-muted shrink-0">NOK</span>
                         </div>
                         <div className="flex h-8 items-center gap-1 shrink-0 ml-auto">
                           <button
                             type="button"
                             onClick={() => setPreviewReceipt(r)}
-                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border border-neutral-600 bg-neutral-800 px-2 py-1 text-neutral-300 hover:border-neutral-500 hover:text-white focus:border-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-500"
+                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-control bg-surface text-muted hover:border-control-hover hover:text-ink focus:border-ink focus:outline-none"
                             title="Vis bilag"
                             aria-label="Vis bilag"
                           >
@@ -1330,7 +1394,7 @@ export function ReviewEditor({
                               type="button"
                               onClick={() => handleDeleteReceipt(r.id)}
                               disabled={deletingId === r.id}
-                              className="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-neutral-600 bg-neutral-800 text-neutral-400 hover:border-red-500/50 hover:bg-red-950/30 hover:text-red-400 focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500 disabled:opacity-50"
+                              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-control bg-surface text-muted hover:border-neg hover:bg-neg-soft hover:text-neg focus:border-neg focus:outline-none disabled:opacity-50"
                               title="Fjern bilag"
                               aria-label="Fjern bilag"
                             >
@@ -1353,7 +1417,7 @@ export function ReviewEditor({
                               return next;
                             });
                           }}
-                          className="text-left text-xs text-neutral-400 hover:text-white hover:underline md:hidden pl-5"
+                          className="text-left text-xs text-muted underline decoration-control underline-offset-2 hover:text-ink md:hidden pl-5"
                         >
                           Legg til kommentar
                         </button>
@@ -1361,7 +1425,7 @@ export function ReviewEditor({
                     </div>
                   </div>,
                   showComment ? (
-                    <div key={`${r.id}-comment`} className="col-span-1 md:col-span-4 border-b border-neutral-800 pb-2 pt-0 pl-5 md:pl-0">
+                    <div key={`${r.id}-comment`} className="col-span-1 md:col-span-4 border-b border-rule pb-2 pt-0 pl-5 md:pl-0">
                       <div className="mt-1.5 flex min-h-7 items-center gap-0.5 min-w-0">
                         <div
                           className={showMealHighlight || showTransportHighlight ? "meal-highlight-wrap flex min-h-7 w-full min-w-0 max-w-full md:max-w-[19.2rem] shrink flex-1 items-center rounded" : "flex min-h-7 w-full min-w-0 max-w-full md:max-w-[19.2rem] shrink flex-1 items-center"}
@@ -1394,13 +1458,13 @@ export function ReviewEditor({
                               !commentFieldCollapsedIds.has(r.id)
                             }
                             rows={1}
-                            className={`min-h-7 w-full min-w-0 resize-none overflow-hidden rounded-md border bg-[rgba(255,255,255,0.03)] px-2.5 py-1 text-xs text-white placeholder:text-[rgba(255,255,255,0.45)] focus:outline-none focus:ring-1 disabled:opacity-60 ${
+                            className={`min-h-7 w-full min-w-0 resize-none overflow-hidden rounded-md border bg-comment px-2.5 py-1 text-xs text-ink placeholder:text-faint focus:bg-field focus:outline-none focus:ring-2 disabled:opacity-60 ${
                               (activeFlags.includes("MEAL") || activeFlags.includes("TRANSPORT")) &&
                               !commentFieldCollapsedIds.has(r.id) &&
                               !(r.comment && r.comment.trim().length > 0) &&
                               showCommentErrors
-                                ? "border-red-500 focus:border-red-500 focus:ring-red-500"
-                                : "border-[rgba(255,255,255,0.12)] focus:border-[rgba(255,255,255,0.25)] focus:ring-[rgba(255,255,255,0.15)]"
+                                ? "border-neg focus:border-neg focus:ring-neg/15"
+                                : "border-control focus:border-ink focus:ring-ink/10"
                             }`}
                           />
                           {showMealHighlight && (
@@ -1453,7 +1517,7 @@ export function ReviewEditor({
                                 new Set(prev).add(r.id)
                               );
                             }}
-                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-base leading-none text-gray-500 opacity-70 hover:opacity-100 hover:text-gray-300 focus:outline-none"
+                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-base leading-none text-muted hover:text-ink focus:outline-none"
                             title="Fjern kommentar"
                             aria-label="Fjern kommentar"
                           >
@@ -1467,7 +1531,7 @@ export function ReviewEditor({
               })}
         </div>
         {!isSubmitted && (
-          <div className="mt-4 flex flex-wrap items-center gap-3">
+          <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg border border-dashed border-control p-3">
             <input
               ref={fileInputRef}
               type="file"
@@ -1483,131 +1547,137 @@ export function ReviewEditor({
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={addingReceipts}
-              className="rounded-lg border border-neutral-600 bg-neutral-800 px-3 py-2 text-sm text-neutral-300 hover:border-neutral-500 hover:bg-neutral-700 hover:text-white disabled:opacity-50"
+              className="rounded-md bg-secondary px-3 py-2 text-sm font-medium text-ink hover:bg-secondary-hover disabled:opacity-50"
             >
               {addingReceipts ? "Laster opp og analyserer…" : "Legg til"}
             </button>
-            <span className="hidden md:inline text-sm text-neutral-500">
+            <span className="hidden md:inline text-sm text-muted">
               Dra filer hit for å legge til kvitteringer, eller bruk knappen.
             </span>
             {addError && (
-              <p className="w-full text-sm text-red-400 sm:w-auto">{addError}</p>
+              <p className="w-full text-sm text-neg sm:w-auto">{addError}</p>
             )}
           </div>
         )}
       </section>
 
-      <section className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-6">
-        <h2 className="text-lg font-medium text-neutral-200 mb-4">
-          Oppsummering
-        </h2>
-        <dl className="space-y-2 text-sm">
-          <div className="flex justify-between">
-            <dt className="text-neutral-400">Total</dt>
-            <dd className="text-white">{formatNok(totalCents)}</dd>
-          </div>          <div className="flex justify-between">
-            <dt className="text-neutral-400">Produksjonskasse</dt>
-            <dd className="text-white">{formatNok(productionCashCents)}</dd>
-          </div>
-          <div className="flex justify-between items-start gap-2 pt-2 border-t border-neutral-700">
-            <dt className="text-neutral-400 min-w-0">{diffLabel(diffCents)}</dt>
-            <dd className="text-white font-medium whitespace-nowrap shrink-0">
-              {formatNok(diffCents)}
-            </dd>
-          </div>
-        </dl>
-      </section>
+      </div>
 
-      {!isSubmitted && (
-        <section className="flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={handleOpenConfirmModal}
-            disabled={submitting}
-            aria-busy={submitting}
-            className="inline-flex min-h-[2.5rem] min-w-[8.5rem] items-center justify-center gap-2 rounded-lg bg-green-700 px-4 py-2 text-sm font-medium text-white hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {submitting && (
-              <span
-                className="inline-block h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-white border-t-transparent"
-                aria-hidden
-              />
-            )}
-            <span>{submitting ? "Sender inn…" : "Send inn"}</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              const payload = {
-                submission: {
-                  name: name || null,
-                  projectNumber: projectNumber.trim() || null,
-                  project: project.trim() || null,
-                  workDate: workDate ? `${workDate}T12:00:00.000Z` : null,
-                  accountNumber: accountNumber.trim() || null,
-                  productionCashCents,
-                },
-                receipts: receipts.map((r) => ({
-                  summary: r.extractedSummary ?? "Kvittering",
-                  amountCents: r.extractedTotalCents ?? 0,
-                  comment: r.comment ?? null,
-                  originalAmountCents: r.originalAmountCents ?? null,
-                  extractedCurrency: r.extractedCurrency ?? null,
-                })),
-                totals: { totalCents, productionCashCents, diffCents },
-              };
-              try {
-                sessionStorage.setItem(
-                  `${PREVIEW_STORAGE_KEY}-${token}`,
-                  JSON.stringify(payload)
-                );
-                window.open(
-                  `/s/${token}/preview`,
-                  "_blank",
-                  "width=720,height=900,scrollbars=yes,resizable=yes"
-                );
-              } catch {
-                // sessionStorage can throw in private mode
-              }
-            }}
-            className="rounded-lg border border-neutral-600 bg-neutral-800 px-4 py-2 text-sm font-medium text-neutral-200 hover:bg-neutral-700"
-          >
-            Forhåndsvis skjema
-          </button>
+      <aside className="grid gap-3 lg:sticky lg:top-6">
+        <section
+          className="grid gap-4 rounded-lg border border-line bg-surface p-5"
+          aria-labelledby="summary-title"
+        >
+          <h2 id="summary-title" className="text-[15px] font-semibold text-ink">
+            Oppsummering
+          </h2>
+          <div>
+            <p className="text-sm text-muted">{diffShort(diffCents)}</p>
+            <p
+              className={`whitespace-nowrap text-[30px] font-bold leading-tight tracking-tight tabular-nums ${
+                diffCents < 0 ? "text-neg" : "text-data"
+              }`}
+            >
+              {formatNok(Math.abs(diffCents))}
+            </p>
+          </div>
+          <dl className="space-y-2 text-sm">
+            <div className="flex justify-between gap-3">
+              <dt className="text-muted">Total</dt>
+              <dd className="text-ink tabular-nums">{formatNok(totalCents)}</dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-muted">Produksjonskasse</dt>
+              <dd className="text-ink tabular-nums">{formatNok(productionCashCents)}</dd>
+            </div>
+            <div className="flex items-start justify-between gap-3 border-t border-rule pt-2">
+              <dt className="min-w-0 text-muted">{diffLabel(diffCents)}</dt>
+              <dd className="shrink-0 whitespace-nowrap font-semibold text-ink tabular-nums">
+                {formatNok(diffCents)}
+              </dd>
+            </div>
+          </dl>
+          {!isSubmitted && (
+            <div className="hidden gap-2 lg:grid">
+              {sendButton("h-10 w-full px-4")}
+              <button
+                type="button"
+                onClick={openFormPreview}
+                className="h-10 rounded-md bg-secondary px-4 text-sm font-medium text-ink hover:bg-secondary-hover"
+              >
+                Forhåndsvis skjema
+              </button>
+            </div>
+          )}
           {submitError && (
-            <p className="text-sm text-red-400">{submitError}</p>
+            <p className="text-sm text-neg">{submitError}</p>
           )}
         </section>
+        <p className="px-1 text-sm text-muted">
+          Har du spørsmål vedrørende utlegg, kan disse rettes til{" "}
+          <a
+            href="mailto:utlegg@aparent.tv"
+            className="text-ink underline hover:opacity-80"
+          >
+            utlegg@aparent.tv
+          </a>
+        </p>
+      </aside>
+      </div>
+
+      {!isSubmitted && (
+        <div className="sticky bottom-0 z-20 -mx-4 flex items-center justify-between gap-3 border-t border-line bg-surface px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:-mx-8 md:px-8 lg:hidden">
+          <div className="min-w-0">
+            <p className="text-xs text-muted">{diffShort(diffCents)}</p>
+            <p
+              className={`whitespace-nowrap text-lg font-bold tabular-nums ${
+                diffCents < 0 ? "text-neg" : "text-data"
+              }`}
+            >
+              {formatNok(Math.abs(diffCents))}
+            </p>
+          </div>
+          <div className="flex shrink-0 gap-2">
+            <button
+              type="button"
+              onClick={openFormPreview}
+              className="h-9 rounded-md bg-secondary px-3 text-sm font-medium text-ink hover:bg-secondary-hover"
+            >
+              Forhåndsvis
+            </button>
+            {sendButton("h-9 px-3")}
+          </div>
+        </div>
       )}
 
       </>)}
 
       {showMealInfoModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-scrim p-4"
           role="dialog"
           aria-modal="true"
           aria-labelledby="meal-info-modal-title"
         >
           <div
-            className="w-full max-w-md rounded-xl border border-neutral-700 bg-neutral-900 p-6 shadow-xl"
+            className="w-full max-w-md rounded-xl border border-line bg-surface p-6 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <h2
               id="meal-info-modal-title"
-              className="mb-4 text-lg font-bold text-white"
+              className="mb-4 text-lg font-semibold text-ink"
             >
               Mat og drikke
             </h2>
-            <div className="text-sm text-neutral-300 space-y-3 mb-6">
+            <div className="text-sm text-ink space-y-3 mb-6">
               <p>
                 Det ser ut som du har lagt til en eller flere kvitteringer som inneholder mat eller drikke. I så fall må du legge til en kommentar på hva og hvem det er til.
               </p>
-              <p className="text-neutral-400">
-                Eksempel på mat til opptak: <em>Mat og drikke til crew og aktører</em>
+              <p className="text-muted">
+                Eksempel på mat til opptak: <em className="rounded bg-raised px-1.5 not-italic">Mat og drikke til crew og aktører</em>
               </p>
-              <p className="text-neutral-400">
-                Eksempel på annen mat: <em>Overtidsmat til [Ditt navn]</em>
+              <p className="text-muted">
+                Eksempel på annen mat: <em className="rounded bg-raised px-1.5 not-italic">Overtidsmat til [Ditt navn]</em>
               </p>
               <p>
                 Hvis kvitteringen ikke inneholder mat eller drikke så fjerner du bare kommentarfeltet eller mat/drikke-taggen.
@@ -1621,7 +1691,7 @@ export function ReviewEditor({
                   // Start pulseringsanimasjon på kommentarfelt først etter at modal er lukket (klar overgang)
                   setTimeout(() => setMealModalClosedOnce(true), 150);
                 }}
-                className="rounded-lg bg-neutral-700 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-600"
+                className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-fg hover:bg-primary-hover"
               >
                 Lukk
               </button>
@@ -1632,27 +1702,27 @@ export function ReviewEditor({
 
       {showTransportInfoModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-scrim p-4"
           role="dialog"
           aria-modal="true"
           aria-labelledby="transport-info-modal-title"
         >
           <div
-            className="w-full max-w-md rounded-xl border border-neutral-700 bg-neutral-900 p-6 shadow-xl"
+            className="w-full max-w-md rounded-xl border border-line bg-surface p-6 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <h2
               id="transport-info-modal-title"
-              className="mb-4 text-lg font-bold text-white"
+              className="mb-4 text-lg font-semibold text-ink"
             >
               Reisekostnader
             </h2>
-            <div className="text-sm text-neutral-300 space-y-3 mb-6">
+            <div className="text-sm text-ink space-y-3 mb-6">
               <p>
                 Det ser ut som du har lagt til en eller flere kvitteringer som kan være reisekostnader (f.eks. parkering, bensin, taxi, kollektiv). Legg gjerne til en kort kommentar om formålet.
               </p>
-              <p className="text-neutral-400">
-                Eksempel: <em>Reise til/fra opptak</em> eller <em>Parkering under innspilling</em>
+              <p className="text-muted">
+                Eksempel: <em className="rounded bg-raised px-1.5 not-italic">Reise til/fra opptak</em> eller <em className="rounded bg-raised px-1.5 not-italic">Parkering under innspilling</em>
               </p>
               <p>
                 Hvis kvitteringen ikke er en reisekostnad, fjerner du taggen eller kommentarfeltet.
@@ -1665,7 +1735,7 @@ export function ReviewEditor({
                   setShowTransportInfoModal(false);
                   setTimeout(() => setTransportModalClosedOnce(true), 150);
                 }}
-                className="rounded-lg bg-neutral-700 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-600"
+                className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-fg hover:bg-primary-hover"
               >
                 Lukk
               </button>
@@ -1676,27 +1746,27 @@ export function ReviewEditor({
 
       {showCurrencyInfoModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-scrim p-4"
           role="dialog"
           aria-modal="true"
           aria-labelledby="currency-info-modal-title"
         >
           <div
-            className="w-full max-w-md rounded-xl border border-neutral-700 bg-neutral-900 p-6 shadow-xl"
+            className="w-full max-w-md rounded-xl border border-line bg-surface p-6 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <h2
               id="currency-info-modal-title"
-              className="mb-4 text-lg font-bold text-white"
+              className="mb-4 text-lg font-semibold text-ink"
             >
               Kvittering i {foreignCurrencyCode ?? "utenlandsk valuta"}
             </h2>
-            <div className="text-sm text-neutral-300 space-y-3 mb-6">
+            <div className="text-sm text-ink space-y-3 mb-6">
               <p>
                 Du har lagt til en kvittering i{" "}
                 {foreignCurrencyCode ?? "utenlandsk valuta"}. Skriv inn beløpet i NOK i feltet for beløp.
               </p>
-              <p className="text-neutral-400">
+              <p className="text-muted">
                 Beløpet i {foreignCurrencyCode ?? "opprinnelig valuta"} vises kun som referanse og blir ikke automatisk omregnet.
               </p>
             </div>
@@ -1704,7 +1774,7 @@ export function ReviewEditor({
               <button
                 type="button"
                 onClick={() => setShowCurrencyInfoModal(false)}
-                className="rounded-lg bg-neutral-700 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-600"
+                className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-fg hover:bg-primary-hover"
               >
                 Lukk
               </button>
@@ -1715,23 +1785,23 @@ export function ReviewEditor({
 
       {showConfirmModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-scrim p-4"
           role="dialog"
           aria-modal="true"
           aria-labelledby="confirm-modal-title"
           onClick={() => setShowConfirmModal(false)}
         >
           <div
-            className="w-full max-w-md rounded-xl border border-neutral-700 bg-neutral-900 p-6 shadow-xl"
+            className="w-full max-w-md rounded-xl border border-line bg-surface p-6 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <h2
               id="confirm-modal-title"
-              className="text-lg font-medium text-white mb-4"
+              className="mb-4 text-lg font-semibold text-ink"
             >
               Siste sjekk før innsending
             </h2>
-            <p className="text-sm text-neutral-400 mb-4">
+            <p className="text-sm text-muted mb-4">
               Gå gjennom punktene nedenfor før du sender inn utlegget.
             </p>
             <ul className="space-y-3 mb-6">
@@ -1741,9 +1811,9 @@ export function ReviewEditor({
                   id="confirm-sums"
                   checked={confirmCheckedSums}
                   onChange={(e) => setConfirmCheckedSums(e.target.checked)}
-                  className="mt-1 h-5 w-5 min-h-5 min-w-5 shrink-0 rounded border-neutral-600 bg-neutral-800 text-green-600 focus:ring-green-500"
+                  className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
                 />
-                <label htmlFor="confirm-sums" className="text-sm text-neutral-300">
+                <label htmlFor="confirm-sums" className="text-sm text-ink">
                   Jeg har dobbeltsjekket at summer og beskrivelser stemmer
                 </label>
               </li>
@@ -1753,48 +1823,48 @@ export function ReviewEditor({
                   id="confirm-production"
                   checked={confirmCheckedProduction}
                   onChange={(e) => setConfirmCheckedProduction(e.target.checked)}
-                  className="mt-1 h-5 w-5 min-h-5 min-w-5 shrink-0 rounded border-neutral-600 bg-neutral-800 text-green-600 focus:ring-green-500"
+                  className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
                 />
-                <label htmlFor="confirm-production" className="text-sm text-neutral-300">
+                <label htmlFor="confirm-production" className="text-sm text-ink">
                   Jeg har fylt inn om jeg har mottatt produksjonskasse (forskudd) eller ikke
                 </label>
               </li>
             </ul>
-            <dl className="space-y-2 text-sm mb-6 p-4 rounded-lg bg-neutral-800/50">
+            <dl className="space-y-2 text-sm mb-6 p-4 rounded-lg bg-ground">
               <div className="flex justify-between">
-                <dt className="text-neutral-400">Total</dt>
-                <dd className="text-white">{formatNok(totalCents)}</dd>
+                <dt className="text-muted">Total</dt>
+                <dd className="text-ink">{formatNok(totalCents)}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-neutral-400">Produksjonskasse</dt>
-                <dd className="text-white">{formatNok(productionCashCents)}</dd>
+                <dt className="text-muted">Produksjonskasse</dt>
+                <dd className="text-ink">{formatNok(productionCashCents)}</dd>
               </div>
-              <div className="flex justify-between items-start gap-2 pt-2 border-t border-neutral-700">
-                <dt className="text-neutral-400 min-w-0">{diffLabel(diffCents)}</dt>
+              <div className="flex justify-between items-start gap-2 pt-2 border-t border-rule">
+                <dt className="text-muted min-w-0">{diffLabel(diffCents)}</dt>
                 <dd
                   className={`font-medium whitespace-nowrap shrink-0 ${
                     diffCents > 0
-                      ? "text-green-400"
+                      ? "text-data"
                       : diffCents < 0
-                        ? "text-red-400"
-                        : "text-white"
+                        ? "text-neg"
+                        : "text-ink"
                   }`}
                 >
                   {formatNok(diffCents)}
                 </dd>
               </div>
               {diffCents < 0 && (
-                <div className="flex justify-between pt-2 text-neutral-300">
-                  <dt className="text-neutral-400">Kontonummer for tilbakebetaling</dt>
-                  <dd className="font-mono text-white">{REPAYMENT_ACCOUNT_NUMBER}</dd>
+                <div className="flex justify-between pt-2 text-ink">
+                  <dt className="text-muted">Kontonummer for tilbakebetaling</dt>
+                  <dd className="font-mono text-ink">{REPAYMENT_ACCOUNT_NUMBER}</dd>
                 </div>
               )}
             </dl>
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setShowConfirmModal(false)}
-                className="rounded-lg border border-neutral-600 bg-neutral-800 px-4 py-2 text-sm text-neutral-300 hover:bg-neutral-700 hover:text-white"
+                className="rounded-md bg-secondary px-4 py-2 text-sm font-medium text-ink hover:bg-secondary-hover"
               >
                 Avbryt
               </button>
@@ -1804,7 +1874,7 @@ export function ReviewEditor({
                   if (confirmCheckedSums && confirmCheckedProduction) handleSubmit();
                 }}
                 disabled={!confirmCheckedSums || !confirmCheckedProduction}
-                className="rounded-lg bg-green-700 px-4 py-2 text-sm font-medium text-white hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-fg hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Bekreft og send inn
               </button>
@@ -1815,21 +1885,21 @@ export function ReviewEditor({
 
       {previewReceipt && blobPreviewUrl && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-scrim p-4"
           role="dialog"
           aria-modal="true"
           aria-label="Forhåndsvis bilag"
           onClick={() => setPreviewReceipt(null)}
         >
           <div
-            className={`relative rounded-lg bg-neutral-900 shadow-xl flex items-start justify-center ${isImage ? "w-fit max-w-[95vw] max-h-[90vh] overflow-auto" : "min-w-[280px] min-h-[400px] max-w-[95vw] max-h-[90vh] resize overflow-auto"}`}
+            className={`relative rounded-lg bg-surface shadow-xl flex items-start justify-center ${isImage ? "w-fit max-w-[95vw] max-h-[90vh] overflow-auto" : "min-w-[280px] min-h-[400px] max-w-[95vw] max-h-[90vh] resize overflow-auto"}`}
             onClick={(e) => e.stopPropagation()}
             style={!isImage ? { width: "min(95vw, 800px)", height: "85vh" } : undefined}
           >
             <button
               type="button"
               onClick={() => setPreviewReceipt(null)}
-              className="absolute right-2 top-2 z-10 rounded-full bg-neutral-800 p-1.5 text-neutral-400 hover:bg-neutral-700 hover:text-white focus:outline-none focus:ring-2 focus:ring-white"
+              className="absolute right-2 top-2 z-10 rounded-full bg-raised p-1.5 text-muted hover:bg-secondary-hover hover:text-ink focus:outline-none focus:ring-2 focus:ring-ink"
               aria-label="Lukk"
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">

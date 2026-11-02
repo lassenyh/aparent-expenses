@@ -19,9 +19,9 @@ export type AnalysisProgress = {
 };
 
 const inputClass =
-  "w-full rounded-lg border bg-neutral-800 px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 disabled:opacity-60";
-const okBorder = "border-neutral-700 focus:border-neutral-500 focus:ring-neutral-500";
-const errBorder = "border-red-500 focus:border-red-500 focus:ring-red-500";
+  "h-9 w-full rounded-md border bg-field px-2.5 text-sm text-ink placeholder:text-faint focus:outline-none focus:ring-[3px] disabled:opacity-60";
+const okBorder = "border-control hover:border-control-hover focus:border-ink focus:ring-ink/10";
+const errBorder = "border-neg focus:border-neg focus:ring-neg/15";
 
 function accountProblem(value: string): string | null {
   const digits = value.replace(/\D/g, "");
@@ -97,34 +97,34 @@ export function SubmissionInfoModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/70 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-scrim p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="info-modal-title"
     >
       <form
         onSubmit={handleSubmit}
-        className="my-auto w-full max-w-lg space-y-5 rounded-xl border border-neutral-700 bg-neutral-900 p-6 shadow-xl"
+        className="my-auto w-full max-w-lg space-y-5 rounded-xl border border-line bg-surface p-6 shadow-2xl"
       >
         <div className="space-y-1">
-          <h2 id="info-modal-title" className="text-lg font-semibold text-white">
+          <h2 id="info-modal-title" className="text-lg font-semibold tracking-[-0.01em] text-ink">
             Person- og prosjektinfo
           </h2>
-          <p className="text-sm leading-relaxed text-neutral-400">
+          <p className="text-sm leading-relaxed text-muted">
             Mens du fyller ut, leser vi kvitteringene og fyller ut utleggsskjemaet automatisk.
           </p>
         </div>
 
         <div className="space-y-2" role="status" aria-live="polite">
           <div className="flex items-center justify-between gap-3 text-sm">
-            <span className="text-neutral-300">{statusText}</span>
+            <span className="text-ink">{statusText}</span>
             {progress.total > 0 && (
-              <span className="shrink-0 tabular-nums text-neutral-500">{percent} %</span>
+              <span className="shrink-0 tabular-nums text-muted">{percent} %</span>
             )}
           </div>
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-neutral-800">
+          <div className="h-1 w-full overflow-hidden rounded bg-raised">
             <div
-              className="h-full rounded-full bg-green-600 transition-[width] duration-300"
+              className="h-full rounded bg-load transition-[width] duration-300 motion-reduce:transition-none"
               style={{ width: `${Math.max(percent, progress.total ? 4 : 0)}%` }}
             />
           </div>
@@ -132,8 +132,8 @@ export function SubmissionInfoModal({
 
         <div className="grid gap-4">
           <div>
-            <label htmlFor="info-name" className="mb-1 block text-sm text-neutral-400">
-              Navn <span className="text-neutral-500">*</span>
+            <label htmlFor="info-name" className="mb-1.5 block text-[13px] text-muted">
+              Navn <span className="text-muted">*</span>
             </label>
             <input
               ref={nameRef}
@@ -149,11 +149,11 @@ export function SubmissionInfoModal({
           </div>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-[auto_1fr]">
             <div className="min-w-0">
-              <label htmlFor="info-projectNumber" className="mb-1 flex items-center gap-1.5 text-sm text-neutral-400">
+              <label htmlFor="info-projectNumber" className="mb-1.5 flex items-center gap-1.5 text-[13px] text-muted">
                 Prosjektnummer
                 <span className="group relative inline-flex">
                   <span
-                    className="inline-flex cursor-default text-neutral-500 hover:text-neutral-300"
+                    className="inline-flex cursor-default text-faint hover:text-ink"
                     aria-label="Prosjektnummer finnes i email, eller fås av produsent."
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden>
@@ -164,7 +164,7 @@ export function SubmissionInfoModal({
                       />
                     </svg>
                   </span>
-                  <span className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 -translate-x-1/2 whitespace-nowrap rounded bg-neutral-700 px-2.5 py-1.5 text-xs text-white opacity-0 shadow transition-opacity duration-150 group-hover:opacity-100">
+                  <span className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 -translate-x-1/2 whitespace-nowrap rounded bg-ink px-2.5 py-1.5 text-xs text-ground opacity-0 shadow transition-opacity duration-150 group-hover:opacity-100">
                     Prosjektnummer finnes i email, eller fås av produsent.
                   </span>
                 </span>
@@ -182,8 +182,8 @@ export function SubmissionInfoModal({
               />
             </div>
             <div className="min-w-0">
-              <label htmlFor="info-project" className="mb-1 block text-sm text-neutral-400">
-                Prosjektnavn <span className="text-neutral-500">*</span>
+              <label htmlFor="info-project" className="mb-1.5 block text-[13px] text-muted">
+                Prosjektnavn <span className="text-muted">*</span>
               </label>
               <input
                 id="info-project"
@@ -199,7 +199,7 @@ export function SubmissionInfoModal({
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label htmlFor="info-workDate" className="mb-1 block text-sm text-neutral-400">
+              <label htmlFor="info-workDate" className="mb-1.5 block text-[13px] text-muted">
                 Dato
               </label>
               <input
@@ -210,11 +210,11 @@ export function SubmissionInfoModal({
                 onChange={set("workDate")}
                 onClick={() => workDateRef.current?.showPicker?.()}
                 disabled={continuing}
-                className={`${inputClass} ${okBorder} h-[42px] cursor-pointer [color-scheme:dark]`}
+                className={`${inputClass} ${okBorder} cursor-pointer`}
               />
             </div>
             <div>
-              <label htmlFor="info-productionCash" className="mb-1 block text-sm text-neutral-400">
+              <label htmlFor="info-productionCash" className="mb-1.5 block text-[13px] text-muted">
                 Prod.penger / forskudd (NOK)
               </label>
               <input
@@ -231,8 +231,8 @@ export function SubmissionInfoModal({
             </div>
           </div>
           <div>
-            <label htmlFor="info-accountNumber" className="mb-1 block text-sm text-neutral-400">
-              Kontonummer (11 sifre) <span className="text-neutral-500">*</span>
+            <label htmlFor="info-accountNumber" className="mb-1.5 block text-[13px] text-muted">
+              Kontonummer (11 sifre) <span className="text-muted">*</span>
             </label>
             <input
               ref={accountRef}
@@ -254,26 +254,26 @@ export function SubmissionInfoModal({
               placeholder="11 sifre"
             />
             {accountError && (
-              <p id="info-account-error" className="mt-1 text-sm text-red-400">
+              <p id="info-account-error" className="mt-1 text-[13px] text-neg">
                 {accountError}
               </p>
             )}
           </div>
         </div>
 
-        <p className="text-xs leading-relaxed text-neutral-500">
+        <p className="text-[12.5px] leading-relaxed text-muted">
           På neste side går du gjennom hver linje og sjekker at beløp og beskrivelse stemmer. Noen kjøp kan kreve en
           kort kommentar, for eksempel mat/drikke.
         </p>
 
-        {error && <p className="text-sm text-red-400">{error}</p>}
+        {error && <p className="text-sm text-neg">{error}</p>}
 
         <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
           <button
             type="button"
             onClick={onClose}
             disabled={continuing}
-            className="rounded-lg border border-neutral-600 bg-neutral-800 px-4 py-2.5 text-sm font-medium text-neutral-200 hover:bg-neutral-700 disabled:opacity-50"
+            className="h-9 rounded-md bg-secondary px-4 text-sm font-medium text-ink hover:bg-secondary-hover disabled:opacity-50"
           >
             Tilbake til opplasting
           </button>
@@ -281,11 +281,11 @@ export function SubmissionInfoModal({
             type="submit"
             disabled={continuing}
             aria-busy={continuing}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-green-500 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-neutral-900 disabled:cursor-wait disabled:opacity-80"
+            className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-fg hover:bg-primary-hover disabled:cursor-wait disabled:opacity-80"
           >
             {continuing && (
               <span
-                className="inline-block h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-white border-t-transparent"
+                className="inline-block h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent"
                 aria-hidden
               />
             )}

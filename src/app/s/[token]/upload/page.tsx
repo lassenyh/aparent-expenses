@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getInitialSubmissionInfo } from "@/lib/submissionInfo";
+import { AppHeader } from "@/components/AppHeader";
 import { UploadStep } from "../UploadStep";
 
 type Params = { token: string };
@@ -37,49 +38,22 @@ export default async function UploadOnlyPage(props: PageProps) {
   }));
   const initialInfo = await getInitialSubmissionInfo(submission);
 
-  const backgroundImages = [
-    "/background-1.webp",
-    "/background-2.webp",
-    "/background-3.webp",
-    "/background-4.webp",
-    "/background-5.webp",
-    "/background-6.webp",
-    "/background-7.webp",
-    "/background-8.webp",
-    "/background-9.webp",
-    "/background-10.webp",
-  ];
-  const randomBg =
-    backgroundImages[Math.floor(Math.random() * backgroundImages.length)] ??
-    backgroundImages[0];
-
   return (
-    <main
-      className="relative min-h-screen bg-neutral-950 bg-cover bg-center bg-no-repeat text-white p-10"
-      style={{ backgroundImage: `url(${randomBg})` }}
-    >
-      <div className="absolute inset-0 bg-neutral-950/70" aria-hidden />
-      <div className="relative z-10 flex min-h-screen w-full flex-col items-center justify-center px-4 pt-10 pb-10 md:px-10">
-        <div className="mx-auto flex w-full max-w-2xl flex-col items-center -mt-16 min-w-0">
-          <div className="flex justify-center pb-16">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/logo.png"
-              alt="Logo"
-              className="h-[52px] w-auto max-w-[208px] object-contain"
-            />
-          </div>
-          <section className="mb-8 w-full max-w-[480px] text-center">
-            <h2 className="text-xl font-semibold text-white">
+    <main className="flex flex-col">
+      <AppHeader step="Steg 1 av 2" />
+      <div className="px-4 pb-12 pt-2 md:px-8 md:pt-6">
+        <div className="mx-auto w-full max-w-[640px] min-w-0">
+          <div className="mb-5">
+            <h1 className="text-2xl font-semibold tracking-[-0.02em] text-ink">
               Last opp dine kvitteringer
-            </h2>
-            <p className="mt-2 text-sm leading-relaxed text-neutral-400">
+            </h1>
+            <p className="mt-1 text-sm text-muted">
               Utleggsskjemaet fylles ut automatisk før det sendes til produsent.
             </p>
-            <p className="mx-auto mt-2 max-w-md text-xs leading-relaxed text-gray-500">
+            <p className="mt-1 text-[13px] text-muted">
               Sørg for at beskrivelsen av kvitteringen matcher kjøpet før du sender inn.
             </p>
-          </section>
+          </div>
           <UploadStep token={token} receipts={receipts} initialInfo={initialInfo} />
         </div>
       </div>

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { AppHeader } from "@/components/AppHeader";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getAdminSubmitterDefaults } from "@/lib/adminDefaults";
@@ -6,6 +6,22 @@ import { isAdminSubmitterFlow } from "@/lib/adminSubmitterCookie";
 import { ReviewEditor } from "./ReviewEditor";
 
 type Params = { token: string };
+
+function formatNok(cents: number): string {
+  return `${new Intl.NumberFormat("nb-NO", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(cents / 100)} kr`;
+}
+
+function diffLabel(diffCents: number): string {
+  if (diffCents > 0) return "Til utbetaling (Aparent skylder deg)";
+  if (diffCents < 0) return "Tilbakebetaling (du skylder Aparent)";
+  return "I balanse";
+}
+
+function formatSentAt(date: Date): string {
+  const day = date.toLocaleDateString("nb-NO", { timeZone: "Europe/Oslo", day: "numeric", month: "long", year: "numeric" });
+  const time = date.toLocaleTimeString("nb-NO", { timeZone: "Europe/Oslo", hour: "2-digit", minute: "2-digit" });
+  return `${day} kl. ${time}`;
+}
 type PageProps = {
   params: Promise<Params>;
 };
@@ -23,29 +39,22 @@ export default async function ReviewPage(props: PageProps) {
   if (!submission) return notFound();
 
   if (submission.status === "DRAFT") {
-    const draftBgImages = [
-      "/background-1.webp", "/background-2.webp", "/background-3.webp",
-      "/background-4.webp", "/background-5.webp", "/background-6.webp",
-      "/background-7.webp", "/background-8.webp", "/background-9.webp", "/background-10.webp",
-    ];
-    const draftBg = draftBgImages[Math.floor(Math.random() * draftBgImages.length)] ?? draftBgImages[0];
     return (
-      <main
-        className="relative min-h-screen bg-neutral-950 bg-cover bg-center bg-no-repeat text-white p-10"
-        style={{ backgroundImage: `url(${draftBg})` }}
-      >
-        <div className="absolute inset-0 bg-neutral-950/85" aria-hidden />
-        <div className="relative z-10 mx-auto max-w-4xl">
-          <h1 className="text-2xl font-semibold mb-6">Gjennomgang og innsending</h1>
-          <p className="text-neutral-400">
-            Last opp kvitteringer først og klikk «Opplast» for å gå videre.
-          </p>
-          <a
-            href={`/s/${token}`}
-            className="mt-4 inline-block rounded-lg bg-neutral-700 px-4 py-2 text-sm text-white hover:bg-neutral-600"
-          >
-            Tilbake til opplasting
-          </a>
+      <main className="flex flex-col">
+        <AppHeader />
+        <div className="px-4 pb-12 pt-2 md:px-8 md:pt-6">
+          <section className="mx-auto w-full max-w-[640px] rounded-lg border border-line bg-surface p-6">
+            <h1 className="text-2xl font-semibold tracking-[-0.02em] text-ink">Gjennomgang og innsending</h1>
+            <p className="mt-2 text-sm text-muted">
+              Last opp kvitteringer først og klikk «Opplast» for å gå videre.
+            </p>
+            <a
+              href={`/s/${token}`}
+              className="mt-4 inline-flex h-9 items-center rounded-md bg-secondary px-4 text-sm font-medium text-ink hover:bg-secondary-hover"
+            >
+              Tilbake til opplasting
+            </a>
+          </section>
         </div>
       </main>
     );
@@ -54,73 +63,85 @@ export default async function ReviewPage(props: PageProps) {
   if (submission.status === "SUBMITTED") {
     const adminFlow = await isAdminSubmitterFlow();
     const newSubmissionHref = adminFlow ? "/admin/new" : "/new";
+    const totalCents = submission.receipts.reduce((sum, r) => sum + (r.extractedTotalCents ?? 0), 0);
+    const cashCents = submission.productionCashCents ?? (submission.productionCash ?? 0) * 100;
+    const diffCents = totalCents - cashCents;
+    const sentAt = submission.deliveryStartedAt ?? submission.submissionStartedAt;
+    const project = [submission.projectNumber?.trim(), submission.project?.trim()].filter(Boolean).join(" – ");
     return (
-      <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-neutral-950 text-white p-10">
-        {/* Videobakgrunn for siste side – fil: public/background-success.mp4 */}
-        <video
-          autoPlay
-          loop
-          muted
-          playsInline
-          className="absolute inset-0 h-full w-full object-cover"
-          aria-hidden
-        >
-          <source src="/background-success.mp4" type="video/mp4" />
-        </video>
-        <div className="absolute inset-0 bg-neutral-950/5" aria-hidden />
-        <div className="relative z-10 flex w-full max-w-2xl flex-col items-center text-center">
-          <img
-            src="/logo.png"
-            alt="Logo"
-            className="-mt-4 mb-12 h-12 w-auto max-w-[180px] object-contain"
-          />
-          <p className="mb-6 text-xl font-semibold text-green-400">
-            Utlegget er sendt inn. Vennligst last ned PDF for egen kopi.
-          </p>
-          <div className="mb-6 flex flex-wrap justify-center gap-3">
-            <a
-              href={`/api/submissions/${token}/pdf`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-block rounded-lg bg-green-700 px-4 py-2 text-sm font-medium text-white hover:bg-green-600"
-            >
-              Last ned PDF
-            </a>
-            <a
-              href={newSubmissionHref}
-              className="inline-block rounded-lg border border-neutral-600 bg-neutral-800 px-4 py-2 text-sm font-medium text-neutral-200 hover:bg-neutral-700"
-            >
-              Nytt oppgjør
-            </a>
+      <main className="flex flex-col">
+        <AppHeader />
+        <div className="px-4 pb-12 pt-2 md:px-8 md:pt-6">
+          <div className="mx-auto w-full max-w-[640px] space-y-4">
+            <section className="grid gap-5 rounded-lg border border-line bg-surface p-7" aria-labelledby="done-title">
+              {sentAt && (
+                <p className="flex items-center gap-2 text-[13px] font-medium text-pos">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden>
+                    <path fillRule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.857-9.809a.75.75 0 0 0-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 1 0-1.06 1.061l2.5 2.5a.75.75 0 0 0 1.137-.089l4-5.5Z" clipRule="evenodd" />
+                  </svg>
+                  Sendt inn {formatSentAt(sentAt)}
+                </p>
+              )}
+              <div>
+                <h1 id="done-title" className="text-[28px] font-semibold tracking-[-0.02em] text-ink">
+                  Utlegget er sendt inn
+                </h1>
+                <p className="mt-1.5 text-sm text-muted">Vennligst last ned PDF for egen kopi.</p>
+              </div>
+              <dl className="grid gap-2 rounded-lg bg-ground p-4 text-sm">
+                {project && (
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-muted">Prosjekt</dt>
+                    <dd className="text-right text-ink">{project}</dd>
+                  </div>
+                )}
+                <div className="flex justify-between gap-3">
+                  <dt className="text-muted">Bilag</dt>
+                  <dd className="text-ink">{submission.receipts.length}</dd>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <dt className="text-muted">Total</dt>
+                  <dd className="text-ink">{formatNok(totalCents)}</dd>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <dt className="text-muted">Produksjonskasse</dt>
+                  <dd className="text-ink">{formatNok(cashCents)}</dd>
+                </div>
+                <div className="flex items-baseline justify-between gap-3 border-t border-rule pt-2">
+                  <dt className="text-muted">{diffLabel(diffCents)}</dt>
+                  <dd className={`whitespace-nowrap text-[26px] font-bold tracking-[-0.02em] ${diffCents < 0 ? "text-neg" : "text-data"}`}>
+                    {formatNok(diffCents)}
+                  </dd>
+                </div>
+              </dl>
+              <div className="flex flex-wrap gap-2">
+                <a
+                  href={`/api/submissions/${token}/pdf`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-fg hover:bg-primary-hover"
+                >
+                  Last ned PDF
+                </a>
+                <a
+                  href={newSubmissionHref}
+                  className="inline-flex h-9 items-center rounded-md bg-secondary px-4 text-sm font-medium text-ink hover:bg-secondary-hover"
+                >
+                  Nytt oppgjør
+                </a>
+              </div>
+            </section>
+            <p className="text-[13px] text-muted">
+              Har du spørsmål vedrørende utlegg, kan disse rettes til{" "}
+              <a href="mailto:utlegg@aparent.tv" className="text-ink underline underline-offset-2">
+                utlegg@aparent.tv
+              </a>
+            </p>
           </div>
-          <p className="text-sm text-neutral-400">
-            Har du spørsmål vedrørende utlegg, kan disse rettes til{" "}
-            <a
-              href="mailto:utlegg@aparent.tv"
-              className="text-neutral-300 underline hover:text-white"
-            >
-              utlegg@aparent.tv
-            </a>
-          </p>
         </div>
       </main>
     );
   }
-
-  const backgroundImages = [
-    "/background-1.webp",
-    "/background-2.webp",
-    "/background-3.webp",
-    "/background-4.webp",
-    "/background-5.webp",
-    "/background-6.webp",
-    "/background-7.webp",
-    "/background-8.webp",
-    "/background-9.webp",
-    "/background-10.webp",
-  ];
-  const randomBg =
-    backgroundImages[Math.floor(Math.random() * backgroundImages.length)] ?? backgroundImages[0];
 
   const adminFlow = await isAdminSubmitterFlow();
   const adminDefaults = adminFlow ? getAdminSubmitterDefaults() : null;
@@ -150,35 +171,20 @@ export default async function ReviewPage(props: PageProps) {
   };
 
   return (
-    <main
-      className="relative min-h-screen bg-neutral-950 bg-cover bg-center bg-no-repeat text-white p-10"
-      style={{ backgroundImage: `url(${randomBg})` }}
-    >
-      <div className="absolute inset-0 bg-neutral-950/85" aria-hidden />
-      <div className="relative z-10 mx-auto max-w-4xl">
-        <div className="mb-6 flex flex-col items-center gap-8 md:flex-row md:items-start md:justify-between md:gap-4">
-          <Link
-            href={`/s/${token}/upload`}
-            className="shrink-0 outline-none ring-offset-neutral-950 rounded-md focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2"
-            aria-label="Til opplasting"
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/logo.png"
-              alt="Logo"
-              className="h-10 w-auto max-w-[140px] object-contain"
-            />
-          </Link>
-          <div className="flex flex-col items-center gap-1 md:items-start">
-            <h1 className="text-xl font-semibold text-center whitespace-nowrap md:text-2xl md:text-left">
-              Gjennomgang og innsending
-            </h1>
+    <main className="flex flex-col">
+      <AppHeader logoHref={`/s/${token}/upload`} step="Steg 2 av 2" />
+      <div className="px-4 pt-2 md:px-8 md:pt-4">
+        <div className="mx-auto w-full max-w-6xl">
+          <div className="mb-5">
+            <h1 className="text-2xl font-semibold tracking-[-0.02em] text-ink">Gjennomgang og innsending</h1>
             {adminFlow && (
-              <p className="text-xs text-neutral-500">Admin-modus (navn og konto forhåndsutfylt)</p>
+              <p className="mt-1.5 inline-block rounded-full bg-pill px-2 py-px text-[12.5px] text-pill-ink">
+                Admin-modus (navn og konto forhåndsutfylt)
+              </p>
             )}
           </div>
+          <ReviewEditor initialData={initialData} token={token} />
         </div>
-        <ReviewEditor initialData={initialData} token={token} />
       </div>
     </main>
   );

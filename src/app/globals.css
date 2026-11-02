@@ -1,35 +1,125 @@
 @import "tailwindcss";
 
+/*
+ * Hovedbok: an achromatic ledger. Chrome stays ink and grey; the only hue is the
+ * payout amount and loading bars (yellow). Light and dark follow the system setting.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  color-scheme: light;
+  --ground: #f2f4f7;
+  --surface: #ffffff;
+  --raised: #eceef1;
+  --line: #e3e6ea;
+  --rule: #eef0f3;
+  --control: #d2d6dc;
+  --control-hover: #b3b8c0;
+  --ink: #0a0a0a;
+  --muted: #62666d;
+  --faint: #8a8f97;
+  --primary: #141414;
+  --primary-fg: #ffffff;
+  --primary-hover: #333333;
+  --secondary: #e5e5e5;
+  --secondary-hover: #d9d9d9;
+  /* Payout amount: a darker yellow, since the bright one is unreadable on white. */
+  --data: #946b00;
+  --load: #f2b705;
+  --pos: #2e7d32;
+  --neg: #c4242a;
+  --neg-soft: #fdeceb;
+  --warn-bg: #fffbeb;
+  --warn-ink: #92400e;
+  --warn-line: #f3d9a4;
+  --pill: #eceef1;
+  --pill-ink: #33363b;
+  --field: #ffffff;
+  --comment: #fafbfc;
+  --scrim: rgb(10 12 16 / 0.45);
+  --logo-filter: brightness(0);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    color-scheme: dark;
+    --ground: #0d0e10;
+    --surface: #16171a;
+    --raised: #202226;
+    --line: #25272c;
+    --rule: #1f2125;
+    --control: #393c42;
+    --control-hover: #50545b;
+    --ink: #f1f2f4;
+    --muted: #9b9fa7;
+    --faint: #7d818a;
+    --primary: #f1f2f4;
+    --primary-fg: #0d0e10;
+    --primary-hover: #ffffff;
+    --secondary: #26282d;
+    --secondary-hover: #30333a;
+    --data: #ffc933;
+    --load: #ffc933;
+    --pos: #6fcf86;
+    --neg: #ff6e6a;
+    --neg-soft: #2c1718;
+    --warn-bg: #241d10;
+    --warn-ink: #f0b862;
+    --warn-line: #4a3a1c;
+    --pill: #24262b;
+    --pill-ink: #d4d6da;
+    --field: #111214;
+    --comment: #121316;
+    --scrim: rgb(0 0 0 / 0.62);
+    --logo-filter: none;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@theme inline {
+  --color-ground: var(--ground);
+  --color-surface: var(--surface);
+  --color-raised: var(--raised);
+  --color-line: var(--line);
+  --color-rule: var(--rule);
+  --color-control: var(--control);
+  --color-control-hover: var(--control-hover);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-primary: var(--primary);
+  --color-primary-fg: var(--primary-fg);
+  --color-primary-hover: var(--primary-hover);
+  --color-secondary: var(--secondary);
+  --color-secondary-hover: var(--secondary-hover);
+  --color-data: var(--data);
+  --color-load: var(--load);
+  --color-pos: var(--pos);
+  --color-neg: var(--neg);
+  --color-neg-soft: var(--neg-soft);
+  --color-warn-bg: var(--warn-bg);
+  --color-warn-ink: var(--warn-ink);
+  --color-warn-line: var(--warn-line);
+  --color-pill: var(--pill);
+  --color-pill-ink: var(--pill-ink);
+  --color-field: var(--field);
+  --color-comment: var(--comment);
+  --color-scrim: var(--scrim);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
 }
 
-/* Hvit kalender-ikon på dato-felt i mørke skjemaer */
-.bg-neutral-950 input[type="date"]::-webkit-calendar-picker-indicator {
-  filter: invert(1);
+body {
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The logo file is light grey; it is drawn black on the light theme. */
+.logo-img {
+  filter: var(--logo-filter);
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
   cursor: pointer;
-  opacity: 0.9;
 }
 
 /* Indeterminate progress bar (analyser kvitteringer) */
@@ -41,17 +131,17 @@ body {
   animation: analyze-progress 1.5s ease-in-out infinite;
 }
 
-/* Stiplet grønn ramme rundt kommentarfelt (mat/drikke). Pulserer to ganger, deretter forsvinner. */
+/* Stiplet ramme rundt kommentarfelt (mat/drikke). Pulserer to ganger, deretter forsvinner. */
 .meal-highlight-wrap {
   position: relative;
-  border-radius: 0.25rem;
+  border-radius: 0.375rem;
 }
 .meal-highlight-border {
   position: absolute;
   inset: 0;
   z-index: 10;
-  border: 2px dashed rgb(34 197 94);
-  border-radius: 0.25rem;
+  border: 2px dashed var(--load);
+  border-radius: 0.375rem;
   pointer-events: none;
   animation: meal-pulse-twice 2.2s ease-in-out forwards;
 }
@@ -62,4 +152,11 @@ body {
   66%  { opacity: 0.35; }
   88%  { opacity: 1; }
   100% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-analyze-progress,
+  .meal-highlight-border {
+    animation: none;
+  }
 }

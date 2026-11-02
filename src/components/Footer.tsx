@@ -1,24 +1,26 @@
 export function Footer() {
   return (
-    <footer className="mt-auto w-full border-t border-neutral-800 bg-neutral-900/80 py-4 text-neutral-400">
-      <div className="mx-auto flex max-w-4xl flex-col items-center justify-center gap-1 px-4 text-[10px] uppercase tracking-wide md:flex-row md:items-center md:justify-between md:gap-0 md:px-6 md:text-xs">
-        <span className="text-neutral-400">© 2026 APARENT</span>
-        <a
-          href="https://www.aparent.tv"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-neutral-300 hover:text-white transition-colors"
-        >
-          APARENT.TV
-        </a>
-        <a
-          href="https://www.instagram.com/aparent.tv/"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="hidden text-neutral-300 hover:text-white transition-colors md:inline-block"
-        >
-          INSTAGRAM
-        </a>
+    <footer className="mt-auto w-full border-t border-line">
+      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-4 text-[12.5px] text-muted md:px-8">
+        <span>© 2026 Aparent</span>
+        <nav className="flex gap-5">
+          <a
+            href="https://www.aparent.tv"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-ink"
+          >
+            aparent.tv
+          </a>
+          <a
+            href="https://www.instagram.com/aparent.tv/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-ink"
+          >
+            Instagram
+          </a>
+        </nav>
       </div>
     </footer>
   );
