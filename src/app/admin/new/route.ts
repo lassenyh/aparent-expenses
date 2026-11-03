@@ -24,6 +24,17 @@ export async function GET(request: Request) {
     );
   }
 
+  const projectId = new URL(request.url).searchParams.get("projectId")?.trim();
+  const project = projectId
+    ? await prisma.project.findFirst({
+        where: { id: projectId, closedAt: null },
+        select: { id: true, number: true, name: true },
+      })
+    : null;
+  if (projectId && !project) {
+    return NextResponse.redirect(new URL("/admin?startError=project-unavailable", request.url));
+  }
+
   const accessToken = generateSecureToken();
   const submission = await prisma.submission.create({
     data: {
@@ -31,6 +42,7 @@ export async function GET(request: Request) {
       name: defaults.name,
       accountNumber: defaults.accountNumber,
       workDate: new Date(),
+      ...(project && { projectId: project.id, projectNumber: project.number, project: project.name }),
     },
     select: { accessToken: true },
   });

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { AppHeader } from "@/components/AppHeader";
 import { isAdminSubmitterConfigured } from "@/lib/adminDefaults";
 import { requireAdmin } from "@/lib/adminAuth";
@@ -10,6 +9,7 @@ import { CopyLinkButton } from "./CopyLinkButton";
 import { CreateProjectForm } from "./CreateProjectForm";
 import { DeleteProjectButton } from "./DeleteProjectButton";
 import { projectLabel } from "@/lib/projects";
+import { StartOwnClaimForm } from "./StartOwnClaimForm";
 
 export const metadata = { title: "Prosjekter – Aparent Utlegg" };
 
@@ -60,8 +60,9 @@ function ProjectItem({ project, origin }: { project: ProjectRow; origin: string 
   );
 }
 
-export default async function AdminPage() {
+export default async function AdminPage({ searchParams }: { searchParams: Promise<{ startError?: string }> }) {
   const email = await requireAdmin();
+  const { startError } = await searchParams;
   const [projects, origin] = await Promise.all([
     prisma.project.findMany({
       orderBy: { createdAt: "desc" },
@@ -138,20 +139,16 @@ export default async function AdminPage() {
             </details>
           )}
 
-          <section className="flex flex-col gap-3 rounded-lg border border-line bg-surface p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+          <section className="space-y-4 rounded-lg border border-line bg-surface p-5 sm:p-6">
             <div className="space-y-1">
               <h2 className="text-sm font-medium text-ink">Eget utlegg</h2>
               <p className="text-[13px] leading-relaxed text-muted">
                 Navn og kontonummer er fylt ut, og skjemaet sendes til eBilag.
               </p>
             </div>
+            {startError === "project-unavailable" && <p role="alert" className="text-sm text-neg">Prosjektet er avsluttet eller slettet. Velg et aktivt prosjekt, eller fyll inn prosjekt selv.</p>}
             {isAdminSubmitterConfigured() ? (
-              <Link
-                href="/admin/new"
-                className="inline-flex h-9 shrink-0 items-center justify-center rounded-md bg-secondary px-4 text-sm font-medium text-ink hover:bg-secondary-hover"
-              >
-                Start eget utlegg
-              </Link>
+              <StartOwnClaimForm projects={open} />
             ) : (
               <p className="text-[13px] text-warn-ink">
                 Sett ADMIN_SUBMITTER_NAME og ADMIN_SUBMITTER_ACCOUNT for å bruke dette.
