@@ -8,6 +8,8 @@ import { signOut } from "./login/actions";
 import { setProjectClosed } from "./actions";
 import { CopyLinkButton } from "./CopyLinkButton";
 import { CreateProjectForm } from "./CreateProjectForm";
+import { DeleteProjectButton } from "./DeleteProjectButton";
+import { projectLabel } from "@/lib/projects";
 
 export const metadata = { title: "Prosjekter – Aparent Utlegg" };
 
@@ -42,7 +44,7 @@ function ProjectItem({ project, origin }: { project: ProjectRow; origin: string 
           )}
         </p>
       </div>
-      <div className="flex shrink-0 items-center gap-2">
+      <div className="flex shrink-0 flex-wrap items-center gap-2">
         {!closed && <CopyLinkButton url={url} />}
         <form action={setProjectClosed.bind(null, project.id, !closed)}>
           <button
@@ -52,6 +54,7 @@ function ProjectItem({ project, origin }: { project: ProjectRow; origin: string 
             {closed ? "Gjenåpne" : "Avslutt"}
           </button>
         </form>
+        <DeleteProjectButton projectId={project.id} label={projectLabel(project)} />
       </div>
     </li>
   );

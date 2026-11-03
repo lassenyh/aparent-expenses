@@ -48,3 +48,20 @@ export async function setProjectClosed(projectId: string, closed: boolean) {
   });
   revalidatePath("/admin");
 }
+
+export type DeleteProjectState = { error?: string };
+
+export async function deleteProject(projectId: string): Promise<DeleteProjectState> {
+  await requireAdmin();
+  try {
+    // The foreign key uses SET NULL. Claims keep their project name/number,
+    // receipts and PDFs even when the project and its shared link are removed.
+    await prisma.project.deleteMany({ where: { id: projectId } });
+  } catch (error) {
+    console.error("Could not delete project", error);
+    return { error: "Kunne ikke slette prosjektet. Prøv igjen." };
+  }
+  revalidatePath("/admin");
+  revalidatePath("/p/[code]", "page");
+  return {};
+}

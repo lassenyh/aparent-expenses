@@ -30,7 +30,7 @@ export function CreateProjectForm() {
             disabled={pending}
             aria-invalid={invalid("number") || undefined}
             className={`${inputClass} ${invalid("number") ? errBorder : okBorder}`}
-            placeholder="2417"
+            placeholder="0101"
           />
         </div>
         <div>
@@ -46,7 +46,7 @@ export function CreateProjectForm() {
             aria-invalid={invalid("name") || undefined}
             aria-describedby={state.error ? "project-error" : undefined}
             className={`${inputClass} ${invalid("name") ? errBorder : okBorder}`}
-            placeholder="Vinterlys"
+            placeholder="Aftenposten"
           />
         </div>
         <button
