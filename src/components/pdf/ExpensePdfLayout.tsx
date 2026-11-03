@@ -78,12 +78,12 @@ export function ExpensePdfLayout({
   return (
     <div
       lang="nb"
-      className="min-h-screen bg-white p-10 print:p-10 print:bg-white"
+      className="expense-pdf-layout min-h-screen bg-white p-10 print:p-10 print:bg-white"
       style={{
         fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif',
       }}
     >
-      <div className="mx-auto max-w-[720px] space-y-8 break-inside-avoid print:text-black print:bg-white">
+      <div className="mx-auto max-w-[720px] space-y-5 sm:space-y-8 print:space-y-8 break-inside-avoid print:text-black print:bg-white">
         {/* HEADER */}
         <header className="break-inside-avoid">
           <div className="flex items-start justify-between gap-4">

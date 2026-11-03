@@ -122,6 +122,66 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   cursor: pointer;
 }
 
+/* iOS zooms into focused fields below 16px and can retain that zoom on navigation. */
+@media screen and (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+  select,
+  textarea {
+    font-size: max(1rem, 16px);
+    min-width: 0;
+    max-width: 100%;
+  }
+}
+
+/* Keep the browser preview readable on phones without clipping the amount column.
+   Print styles and the generated PDF retain their full-size layout. */
+@media screen and (max-width: 639px) {
+  .expense-pdf-layout {
+    padding: 16px;
+  }
+  .expense-pdf-layout section {
+    padding: 12px;
+  }
+  .expense-pdf-layout h1 {
+    font-size: 20px;
+  }
+  .expense-pdf-layout header img {
+    max-width: 80px;
+    height: 32px;
+  }
+  .expense-pdf-layout .text-sm {
+    font-size: 12px;
+  }
+  .expense-pdf-layout dl > div {
+    gap: 8px;
+  }
+  .expense-pdf-layout dd {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    text-align: right;
+  }
+  .expense-pdf-layout table {
+    table-layout: fixed;
+  }
+  .expense-pdf-layout th,
+  .expense-pdf-layout td {
+    padding: 10px 6px;
+    overflow-wrap: anywhere;
+  }
+  .expense-pdf-layout th {
+    font-size: 10px;
+  }
+  .expense-pdf-layout th:first-child {
+    width: 28px;
+  }
+  .expense-pdf-layout th:last-child {
+    width: 112px;
+  }
+  .expense-pdf-layout td:last-child:not([colspan]) {
+    white-space: nowrap;
+  }
+}
+
 /* Indeterminate progress bar (analyser kvitteringer) */
 @keyframes analyze-progress {
   0%, 100% { transform: translateX(-100%); }
