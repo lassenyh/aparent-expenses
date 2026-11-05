@@ -1,3 +1,6 @@
+import { bankConversion, manualConversion } from "@/lib/currency";
+import { foreignExchangeProblem } from "@/lib/foreignExchange";
+import { receiptRowForClient } from "@/lib/receiptRows";
 import { NextResponse } from "next/server";
 import { del } from "@vercel/blob";
 import { prisma } from "@/lib/db";
@@ -42,10 +45,35 @@ export async function PATCH(
     }
 
     const body = (await request.json()) as {
+      fxMode?: "bank" | "manual";
+      currency?: string;
+      originalAmountCents?: number;
+      receiptDate?: string;
+      note?: string;
       comment?: string | null;
       dismissFlag?: SmartFlag;
       extractedTotalCents?: number | null;
     };
+    if (body.fxMode) {
+      if (body.fxMode !== "bank" && body.fxMode !== "manual") return NextResponse.json({ error: "Ugyldig valutametode." }, { status: 400 });
+      try {
+        const currency = String(body.currency ?? receipt.extractedCurrency ?? "").trim().toUpperCase();
+        const original = body.originalAmountCents === undefined ? receipt.originalAmountCents : body.originalAmountCents;
+        const date = body.receiptDate ?? receipt.receiptDate;
+        if (typeof original !== "number" || typeof date !== "string") throw new Error("Kontroller valuta, originalbeløp og kjøpsdato.");
+        const fx = body.fxMode === "manual"
+          ? manualConversion(currency, original, body.extractedTotalCents as number, date, String(body.note ?? ""))
+          : await bankConversion(currency, original, date);
+        const saved = await prisma.receipt.updateMany({
+          where: { id, submission: { status: { in: ["DRAFT", "REVIEW"] } } },
+          data: { foreignExchange: fx, extractedCurrency: currency, originalAmountCents: original, receiptDate: date, extractedTotalCents: fx.nokAmountCents },
+        });
+        if (!saved.count) return NextResponse.json({ error: "Utlegget kan ikke lenger endres." }, { status: 409 });
+        return NextResponse.json(await receiptRowForClient(id));
+      } catch (error) {
+        return NextResponse.json({ error: error instanceof Error ? error.message : "Kunne ikke beregne valuta." }, { status: 400 });
+      }
+    }
     const data: {
       comment?: string | null;
       commentFlags?: string;
@@ -61,6 +89,10 @@ export async function PATCH(
       data.extractedTotalCents = Math.round(body.extractedTotalCents);
     } else if (body.extractedTotalCents === null) {
       data.extractedTotalCents = null;
+    }
+    if (data.extractedTotalCents !== undefined) {
+      const problem = foreignExchangeProblem({ ...receipt, extractedTotalCents: data.extractedTotalCents });
+      if (problem) return NextResponse.json({ error: problem }, { status: 400 });
     }
     if (body.dismissFlag === "MEAL" || body.dismissFlag === "TRANSPORT") {
       const flags = parseCommentFlags(receipt.commentFlags);

@@ -1,3 +1,5 @@
+import { Prisma } from "@prisma/client";
+import { bankConversion } from "./currency";
 import { createHash } from "node:crypto";
 import { get } from "@vercel/blob";
 import { prisma } from "@/lib/db";
@@ -105,11 +107,17 @@ export async function analyzeAndStoreReceipt(
   const dismissed = parseCommentFlags(receipt.dismissedCommentFlags);
   const activeFlags = flags.filter((f) => !dismissed.includes(f));
 
+  let foreignExchange = null;
+  if (analyzed.currency !== "NOK" && analyzed.originalAmountCents != null && analyzed.receiptDate) {
+    try { foreignExchange = await bankConversion(analyzed.currency, analyzed.originalAmountCents, analyzed.receiptDate); }
+    catch { /* Keep the receipt readable; review asks for a date or documented conversion. */ }
+  }
   const saved = await prisma.receipt.updateMany({
     where: { id: receipt.id, analysisStartedAt: startedAt },
     data: {
       extractedSummary: analyzed.summary,
-      extractedTotalCents: analyzed.totalCents,
+      extractedTotalCents: foreignExchange?.nokAmountCents ?? analyzed.totalCents,
+      foreignExchange: foreignExchange ?? Prisma.DbNull,
       extractedCurrency: analyzed.currency ?? "NOK",
       originalAmountCents: analyzed.originalAmountCents ?? null,
       commentFlags: stringifyCommentFlags(activeFlags),

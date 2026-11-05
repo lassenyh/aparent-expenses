@@ -1,3 +1,4 @@
+import { foreignExchangeProblem } from "@/lib/foreignExchange";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
@@ -125,6 +126,9 @@ export async function POST(
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
       for (const r of body.receipts) {
+        const stored = submission.receipts.find(item => item.id === r.id)!;
+        const fxProblem = foreignExchangeProblem({ ...stored, extractedTotalCents: r.extractedTotalCents });
+        if (fxProblem) return NextResponse.json({ error: fxProblem }, { status: 400 });
         if (r.extractedTotalCents == null) {
           return NextResponse.json(
             { error: `Kvittering må ha beløp: ${r.id}` },
@@ -175,6 +179,10 @@ export async function POST(
       );
     }
 
+    for (const receipt of updated.receipts) {
+      const problem = foreignExchangeProblem(receipt);
+      if (problem) return NextResponse.json({ error: problem }, { status: 400 });
+    }
     const totalCents = updated.receipts.reduce(
       (s, r) => s + (r.extractedTotalCents ?? 0),
       0
@@ -197,6 +205,7 @@ export async function POST(
         date: updated.workDate?.toISOString() ?? null,
         comment: r.comment ?? null,
         originalAmountCents: r.originalAmountCents ?? null,
+        foreignExchange: r.foreignExchange ?? null,
         extractedCurrency: r.extractedCurrency ?? null,
       })),
       totals: {

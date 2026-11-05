@@ -73,6 +73,7 @@ model Receipt {
   extractedSummary      String?
   extractedTotalCents   Int?
   extractedCurrency     String?           @default("NOK")
+  foreignExchange       Json?
   originalAmountCents   Int? // amount in original currency (for display when different from NOK)
   analysisStatus        String            @default("PENDING")
   analysisError         String?

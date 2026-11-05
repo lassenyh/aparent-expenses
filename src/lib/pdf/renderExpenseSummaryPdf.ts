@@ -1,3 +1,4 @@
+import { foreignExchangePdfLines } from "@/lib/foreignExchange";
 import { bankPdfRows } from "@/lib/bankDetails";
 import fs from "fs";
 import path from "path";
@@ -227,7 +228,9 @@ export async function renderExpenseSummaryPdf({
     const foreignOnOwnLine =
       foreign != null &&
       regular.widthOfTextAtSize(descLines[descLines.length - 1], TEXT) + 8 + regular.widthOfTextAtSize(foreign, TEXT) > descWidth;
-    const mainHeight = 18 + (descLines.length + (foreignOnOwnLine ? 1 : 0)) * LINE;
+    const conversionLines = foreign ? foreignExchangePdfLines(r.foreignExchange).flatMap(line => wrap(safe(line), regular, 9, descWidth)) : [];
+    const descriptionHeight = 18 + (descLines.length + (foreignOnOwnLine ? 1 : 0)) * LINE;
+    const mainHeight = descriptionHeight + conversionLines.length * LINE;
     const comment = r.comment?.trim();
     const commentLines = comment ? wrap(safe(`Kommentar: ${comment}`), regular, TEXT, tableW - 48) : [];
     const commentHeight = comment ? 18 + commentLines.length * LINE : 0;
@@ -244,6 +247,7 @@ export async function renderExpenseSummaryPdf({
               color: muted,
             });
         }
+        conversionLines.forEach((line, k) => text(line, colDesc, t + descriptionHeight + k * LINE + 9, { size: 9, color: muted }));
         text(formatNok(r.amountCents), colAmountRight, t + 9 + 11, { align: "right" });
         if (comment) {
           hline(tableX, tableX + tableW, t + mainHeight);

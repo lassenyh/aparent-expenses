@@ -8,7 +8,7 @@ import { startProjectClaim } from "./actions";
 import { UploadSteps } from "@/app/s/[token]/UploadSteps";
 import { StartButton } from "./StartButton";
 
-export const metadata = { title: "Utlegg – Aparent" };
+export const metadata = { title: "Aparent Utlegg" };
 
 /**
  * The project link sent to freelancers, with the same steps as the upload intro (so the intro

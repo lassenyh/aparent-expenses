@@ -1,3 +1,5 @@
+import { pdfDownloadHeader } from "@/lib/downloadFilename";
+import { foreignExchangeProblem } from "@/lib/foreignExchange";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
@@ -106,6 +108,8 @@ export async function POST(
     });
 
     for (const r of mergedReceipts) {
+      const problem = foreignExchangeProblem(r);
+      if (problem) return NextResponse.json({ error: problem }, { status: 400 });
       if (r.extractedTotalCents == null) {
         return NextResponse.json(
           { error: "Alle kvitteringer må ha beløp (NOK) for å eksportere PDF" },
@@ -141,6 +145,7 @@ export async function POST(
         date: workDate?.toISOString() ?? null,
         comment: r.comment ?? null,
         originalAmountCents: r.originalAmountCents ?? null,
+        foreignExchange: r.foreignExchange ?? null,
         extractedCurrency: r.extractedCurrency ?? null,
       })),
       totals: {
@@ -203,7 +208,7 @@ export async function POST(
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${filename}"`,
+        "Content-Disposition": pdfDownloadHeader(filename),
         "Content-Length": String(pdfUint8.byteLength),
       },
     });

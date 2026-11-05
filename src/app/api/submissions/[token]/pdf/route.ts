@@ -1,3 +1,4 @@
+import { pdfDownloadHeader } from "@/lib/downloadFilename";
 import { NextResponse } from "next/server";
 import { get } from "@vercel/blob";
 import { prisma } from "@/lib/db";
@@ -47,7 +48,7 @@ export async function GET(
     return new NextResponse(result.stream, {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${pdfFilename}"`,
+        "Content-Disposition": pdfDownloadHeader(pdfFilename),
       },
     });
   } catch (error) {

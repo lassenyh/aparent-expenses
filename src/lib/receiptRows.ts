@@ -62,6 +62,7 @@ export async function receiptRowForClient(id: string) {
     extractedTotalCents: r.extractedTotalCents,
     extractedCurrency: r.extractedCurrency ?? null,
     originalAmountCents: r.originalAmountCents ?? null,
+    foreignExchange: r.foreignExchange ?? null,
     blobUrl: r.blobUrl,
     mimeType: r.mimeType,
     comment: r.comment,

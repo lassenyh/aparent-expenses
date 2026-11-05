@@ -1,4 +1,6 @@
 "use client";
+import { ForeignCurrencyDetails } from "@/components/ForeignCurrencyDetails";
+import { foreignExchangeProblem, readForeignExchange } from "@/lib/foreignExchange";
 import { T, useLanguage } from "@/components/LanguageProvider";
 
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
@@ -26,6 +28,7 @@ type ReceiptRow = {
   extractedTotalCents: number | null;
   extractedCurrency: string | null;
   originalAmountCents: number | null;
+  foreignExchange?: unknown;
   blobUrl: string;
   mimeType: string;
   comment: string | null;
@@ -52,6 +55,7 @@ function mapToReceiptRow(r: ReceiptRow): ReceiptRow {
     extractedTotalCents: r.extractedTotalCents ?? null,
     extractedCurrency: r.extractedCurrency ?? null,
     originalAmountCents: r.originalAmountCents ?? null,
+    foreignExchange: r.foreignExchange ?? null,
     blobUrl: r.blobUrl,
     mimeType: r.mimeType,
     comment: r.comment ?? null,
@@ -182,8 +186,6 @@ export function ReviewEditor({
   );
   const [transportModalClosedOnce, setTransportModalClosedOnce] = useState(false);
   const [showTransportInfoModal, setShowTransportInfoModal] = useState(false);
-  const [showCurrencyInfoModal, setShowCurrencyInfoModal] = useState(false);
-  const [foreignCurrencyCode, setForeignCurrencyCode] = useState<string | null>(null);
   const commentSaveTimeoutRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const commentTextareaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -214,17 +216,6 @@ export function ReviewEditor({
       )
     ) {
       setShowTransportInfoModal(true);
-    }
-    const firstForeign = initialData.receipts.find(
-      (r) =>
-        r.extractedCurrency &&
-        r.extractedCurrency.toUpperCase() !== "NOK"
-    );
-    if (firstForeign) {
-      setForeignCurrencyCode(
-        firstForeign.extractedCurrency ? currencyDisplay(firstForeign.extractedCurrency.toUpperCase()) : null
-      );
-      setShowCurrencyInfoModal(true);
     }
   }, []);
   const adjustCommentHeight = useCallback((el: HTMLTextAreaElement | null) => {
@@ -338,6 +329,9 @@ export function ReviewEditor({
               extractedTotalCents: existing?.extractedTotalCents ?? null,
               extractedCurrency: existing?.extractedCurrency ?? null,
               originalAmountCents: existing?.originalAmountCents ?? null,
+              foreignExchange: existing?.foreignExchange ?? null,
+              receiptDate: existing?.receiptDate ?? null,
+              contentHash: existing?.contentHash ?? null,
               comment: existing?.comment ?? null,
               commentFlags: existing?.commentFlags ?? null,
               dismissedCommentFlags: existing?.dismissedCommentFlags ?? null,
@@ -376,22 +370,7 @@ export function ReviewEditor({
           if (mapped.some((r: ReceiptRow) => parseCommentFlags(r.commentFlags).includes("TRANSPORT"))) {
             setShowTransportInfoModal(true);
           }
-          let firstForeign: ReceiptRow | undefined;
-          for (const r of mapped as ReceiptRow[]) {
-            if (
-              r.extractedCurrency &&
-              r.extractedCurrency.toUpperCase() !== "NOK"
-            ) {
-              firstForeign = r;
-              break;
-            }
-          }
-          if (firstForeign) {
-            setForeignCurrencyCode(
-              firstForeign.extractedCurrency ? currencyDisplay(firstForeign.extractedCurrency.toUpperCase()) : null
-            );
-            setShowCurrencyInfoModal(true);
-          }
+
         }
       } catch (e) {
         setAddError((e as Error).message);
@@ -414,6 +393,13 @@ export function ReviewEditor({
       else next.delete(id);
       return next;
     });
+
+  /** A conversion only replaces currency fields, preserving unsaved descriptions/comments. */
+  const applyCurrencyRow = (row: ReceiptRow) => {
+    updateReceipt(row.id, { extractedCurrency: row.extractedCurrency, originalAmountCents: row.originalAmountCents,
+      receiptDate: row.receiptDate, extractedTotalCents: row.extractedTotalCents, foreignExchange: row.foreignExchange });
+    setAmountInputs(prev => { const next = { ...prev }; delete next[row.id]; return next; });
+  };
 
   /** Replaces a row with fresh data from the server after it was analysed again. */
   const applyAnalyzedRow = (row: ReceiptRow) => {
@@ -752,7 +738,7 @@ export function ReviewEditor({
     // selve feilmeldingene settes i handleOpenConfirmModal.
     if (!validateAccount()) return false;
     for (const r of receipts) {
-      if (r.extractedTotalCents == null) return false;
+      if (r.extractedTotalCents == null || foreignExchangeProblem(r)) return false;
     }
     for (const r of receipts) {
       const flags = parseCommentFlags(r.commentFlags);
@@ -804,9 +790,9 @@ export function ReviewEditor({
     }
 
     // Beløp
-    if (receipts.some((r) => r.extractedTotalCents == null)) {
+    if (receipts.some((r) => r.extractedTotalCents == null || foreignExchangeProblem(r))) {
       setShowAmountErrors(true);
-      setSubmitError("Alle kvitteringer må ha beløp i NOK.");
+      setSubmitError("Alle kvitteringer må ha beløp i NOK. Utenlandsk valuta må ha dokumentert omregning.");
       ok = false;
     }
 
@@ -866,9 +852,9 @@ export function ReviewEditor({
       setAccountError("Kontonummer må være 11 sifre");
       return;
     }
-    if (receipts.some((r) => r.extractedTotalCents == null)) {
+    if (receipts.some((r) => r.extractedTotalCents == null || foreignExchangeProblem(r))) {
       setShowAmountErrors(true);
-      setSubmitError("Alle kvitteringer må ha beløp i NOK.");
+      setSubmitError("Alle kvitteringer må ha beløp i NOK. Utenlandsk valuta må ha dokumentert omregning.");
       return;
     }
     let missingRequiredComment = false;
@@ -969,6 +955,7 @@ export function ReviewEditor({
   const showSuccessOnly = submitSuccess || (isSubmitted && displayPdfUrl);
 
   const openFormPreview = () => {
+    if (receipts.some(r => foreignExchangeProblem(r))) { setSubmitError("Valutaomregningen må dokumenteres før innsending."); return; }
     const payload = {
       submission: {
         name: name || null,
@@ -984,6 +971,7 @@ export function ReviewEditor({
         amountCents: r.extractedTotalCents ?? 0,
         comment: r.comment ?? null,
         originalAmountCents: r.originalAmountCents ?? null,
+        foreignExchange: r.foreignExchange ?? null,
         extractedCurrency: r.extractedCurrency ?? null,
       })),
       totals: { totalCents, productionCashCents, diffCents },
@@ -1283,6 +1271,7 @@ export function ReviewEditor({
                   activeFlags.includes("TRANSPORT") &&
                   !transportHighlightDismissedIds.has(r.id);
                 const amountInputProps = {
+                  readOnly: !!r.extractedCurrency && r.extractedCurrency !== "NOK",
                   type: "number" as const,
                   min: -10000,
                   max: 10000,
@@ -1684,6 +1673,11 @@ export function ReviewEditor({
                       )}
                     </div>
                   </div>,
+                  r.extractedCurrency && r.extractedCurrency !== "NOK" ? (
+                    <div key={`${r.id}-fx`} className="col-span-1 min-w-0 border-b border-rule pb-3 md:col-span-4">
+                      <ForeignCurrencyDetails key={`${r.id}-${readForeignExchange(r.foreignExchange)?.retrievedAt ?? "legacy"}`} receipt={r} token={token} onSaved={applyCurrencyRow} disabled={isSubmitted} />
+                    </div>
+                  ) : null,
                   showComment ? (
                     <div key={`${r.id}-comment`} className="col-span-1 md:col-span-4 border-b border-rule pb-2 pt-0 pl-5 md:pl-0">
                       <div className="mt-1.5 flex min-h-7 items-center gap-0.5 min-w-0">
@@ -1824,6 +1818,7 @@ export function ReviewEditor({
           aria-labelledby="summary-title"
         >
           <h2 id="summary-title" className="text-[15px] font-semibold text-ink"><T>{"Oppsummering"}</T></h2>
+          {receipts.some(r => foreignExchangeProblem(r)) && <p className="text-sm text-neg">{t("Totalen er ufullstendig til alle valutabilag er omregnet.")}</p>}
           <div>
             <p className="text-sm text-muted">{t(diffShort(diffCents))}</p>
             <p
@@ -1966,38 +1961,6 @@ export function ReviewEditor({
                   setShowTransportInfoModal(false);
                   setTimeout(() => setTransportModalClosedOnce(true), 150);
                 }}
-                className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-fg hover:bg-primary-hover"
-              ><T>{"Lukk"}</T></button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showCurrencyInfoModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-scrim p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="currency-info-modal-title"
-        >
-          <div
-            className="w-full max-w-md rounded-xl border border-line bg-surface p-6 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2
-              id="currency-info-modal-title"
-              className="mb-4 text-lg font-semibold text-ink"
-            ><T>{"Kvittering i "}</T>{foreignCurrencyCode ?? "utenlandsk valuta"}
-            </h2>
-            <div className="text-sm text-ink space-y-3 mb-6">
-              <p><T>{"Du har lagt til en kvittering i"}</T>{t(" ")}
-                {foreignCurrencyCode ?? "utenlandsk valuta"}<T>{". Skriv inn beløpet i NOK i feltet for beløp."}</T></p>
-              <p className="text-muted"><T>{"Beløpet i "}</T>{foreignCurrencyCode ?? "opprinnelig valuta"}<T>{"vises kun som referanse og blir ikke automatisk omregnet."}</T></p>
-            </div>
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={() => setShowCurrencyInfoModal(false)}
                 className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-fg hover:bg-primary-hover"
               ><T>{"Lukk"}</T></button>
             </div>

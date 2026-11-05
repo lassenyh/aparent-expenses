@@ -1,3 +1,4 @@
+import { ensureReceiptConversions } from "@/lib/ensureReceiptConversions";
 
 import { T } from "@/components/LanguageProvider";
 import { readBankDetails } from "@/lib/bankDetails";
@@ -50,6 +51,7 @@ export default async function ReviewPage(props: PageProps) {
   });
 
   if (!submission) return notFound();
+  if (submission.status !== "SUBMITTED") await ensureReceiptConversions(submission.receipts);
 
   if (submission.status === "DRAFT") {
     return (
@@ -165,6 +167,7 @@ export default async function ReviewPage(props: PageProps) {
       extractedTotalCents: r.extractedTotalCents,
       extractedCurrency: r.extractedCurrency ?? null,
       originalAmountCents: r.originalAmountCents ?? null,
+      foreignExchange: r.foreignExchange ?? null,
       blobUrl: r.blobUrl,
       mimeType: r.mimeType,
       comment: r.comment,

@@ -1,4 +1,3 @@
-import { convertToNokCents } from "./currency";
 import OpenAI from "openai";
 import { toFile } from "openai/uploads";
 import { normalizeReceiptImage } from "./images/normalizeReceiptImage";
@@ -175,7 +174,7 @@ export function parseReceiptOutput(
       : null;
   return {
     summary: r.summary.trim() || "Uleselig kvittering",
-    totalCents: cents == null ? null : convertToNokCents(cents, currency),
+    totalCents: currency === "NOK" ? cents : null,
     originalAmountCents: currency !== "NOK" ? cents : null,
     currency,
     merchant: typeof r.merchant === "string" ? r.merchant : null,

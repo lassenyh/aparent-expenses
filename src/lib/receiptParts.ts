@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { deleteReceiptPreview } from "@/lib/receiptPreview";
 
@@ -12,6 +13,7 @@ const RESET_ANALYSIS = {
   extractedTotalCents: null,
   extractedCurrency: "NOK",
   originalAmountCents: null,
+  foreignExchange: Prisma.DbNull,
   merchant: null,
   receiptDate: null,
   commentFlags: null,

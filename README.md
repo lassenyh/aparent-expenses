@@ -69,3 +69,15 @@ npm run build
 ```
 
 Bruk kun syntetiske data ved lokal testing. `.env.development.local` kan deaktivere e-post med `RESEND_API_KEY=`. Eksisterende produksjonsdata endres ikke av oppstart av dev-serveren.
+
+## Dokumentert valutaomregning
+
+Utenlandske bilag omregnes automatisk med Norges Banks historiske midtkurs på kjøpsdatoen, eller siste tilgjengelige kurs før datoen (maks ti kalenderdager). `UNIT_MULT` normaliseres: SEK oppgis normalt per 100 SEK, mens vi lagrer NOK per én SEK. Faste standardkurser og `EXCHANGE_RATE_*` brukes ikke lenger.
+
+`Receipt.foreignExchange` lagrer kilde, kilde-URL, hentetidspunkt, kjøpsdato, kursdato, kurs, originalbeløp og NOK-beløp. PDF-en viser grunnlaget på norsk. Normalflyten har ingen ekstra steg eller valutapopup. Korreksjoner finnes bak det valgfrie «Valutagrunnlag». Manglende dato, valuta eller kurs krever bare korrigering av det berørte bilaget. Faktisk belastet NOK-beløp kan registreres med begrunnelse; dokumentasjon legges ved som ekstra bilagsbilde.
+
+Innsendte utlegg regnes ikke om. Eksisterende redigerbare utlegg uten dokumentert kurs oppgraderes automatisk ved gjennomgang når kjøpsdatoen er kjent. Innsending og PDF-eksport avviser manglende eller inkonsistent valutagrunnlag. Migreringen `20261105100000_documented_exchange_rates` legger til et nullable JSONB-felt uten å endre historiske beløp.
+
+Oppgjøret summeres fortsatt i NOK. Referansekursen er regnskapsgrunnlag, ikke bankens garanterte utbetalingskurs. Refusjon i SEK og eventuelle valutadifferanser/bankgebyrer avklares med regnskapsfører.
+
+Delingsmetadata bruker «Aparent Utlegg» og `/aparent-utlegg-share.png` (hvit logo på svart, 1200 × 630), med SVG-kilde ved siden av. Private opplysninger inngår ikke i delingsmetadata. Meldingsapper kan mellomlagre tidligere delingskort.

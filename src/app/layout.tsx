@@ -17,7 +17,17 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://utlegg.aparent.tv"),
   title: "Aparent Utlegg",
+  openGraph: {
+    title: "Aparent Utlegg",
+    description: "Last opp og send inn utlegg til produsent",
+    siteName: "Aparent Utlegg",
+    type: "website",
+    locale: "nb_NO",
+    images: [{ url: "/aparent-utlegg-share.png", width: 1200, height: 630, alt: "Aparent – hvit logo på svart bakgrunn" }],
+  },
+  twitter: { card: "summary_large_image", title: "Aparent Utlegg", images: ["/aparent-utlegg-share.png"] },
   description: "Last opp og send inn utlegg til produsent",
   icons: {
     icon: "/favicon.ico",

@@ -1,3 +1,4 @@
+import { foreignExchangePdfLines } from "@/lib/foreignExchange";
 import { bankPdfRows, type BankDetails } from "@/lib/bankDetails";
 import { REPAYMENT_ACCOUNT_NUMBER } from "@/lib/constants";
 import { currencyDisplay } from "@/lib/currencyDisplay";
@@ -23,6 +24,7 @@ export type ExpensePdfReceipt = {
   comment?: string | null;
   /** Original amount in foreign currency (cents). Shown next to description when not NOK. */
   originalAmountCents?: number | null;
+  foreignExchange?: unknown;
   /** ISO currency code (e.g. SEK, EUR). Shown with original amount when not NOK. */
   extractedCurrency?: string | null;
 };
@@ -218,6 +220,7 @@ export function ExpensePdfLayout({
                             {(r.originalAmountCents / 100).toFixed(2)} {currencyDisplay(r.extractedCurrency)}
                           </span>
                         )}
+                      {r.extractedCurrency && r.extractedCurrency !== "NOK" && foreignExchangePdfLines(r.foreignExchange).map((line, index) => <p key={index} className="mt-1 break-words text-xs font-normal text-gray-600">{line}</p>)}
                     </td>
                     <td className="px-4 py-3 text-right font-mono tabular-nums text-gray-900 print:text-black">
                       {formatNok(r.amountCents)}

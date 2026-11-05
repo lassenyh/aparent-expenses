@@ -69,17 +69,10 @@ test("poor images and multiple receipts cannot invent usable totals", () => {
   );
   assert.equal(parseReceiptOutput(result({ currency: null })).totalCents, null);
 });
-test("original foreign-currency flow converts to NOK and keeps the original amount", () => {
-  const previous = process.env.EXCHANGE_RATE_EUR;
-  process.env.EXCHANGE_RATE_EUR = "11.5";
-  try {
-    const eur = parseReceiptOutput(result({ currency: "EUR", total: 12.5 }));
-    assert.equal(eur.totalCents, 14375);
-    assert.equal(eur.originalAmountCents, 1250);
-  } finally {
-    if (previous === undefined) delete process.env.EXCHANGE_RATE_EUR;
-    else process.env.EXCHANGE_RATE_EUR = previous;
-  }
+test("foreign receipt extraction keeps original amount without guessing a NOK rate", () => {
+  const eur = parseReceiptOutput(result({ currency: "EUR", total: 12.5 }));
+  assert.equal(eur.totalCents, null);
+  assert.equal(eur.originalAmountCents, 1250);
 });
 test("receipt ownership rejects foreign and duplicate ids", () => {
   assert.equal(ownsAllReceipts(["a"], ["a", "b"]), true);
