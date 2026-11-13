@@ -80,4 +80,4 @@ Innsendte utlegg regnes ikke om. Eksisterende redigerbare utlegg uten dokumenter
 
 Oppgjøret summeres fortsatt i NOK. Referansekursen er regnskapsgrunnlag, ikke bankens garanterte utbetalingskurs. Refusjon i SEK og eventuelle valutadifferanser/bankgebyrer avklares med regnskapsfører.
 
-Delingsmetadata bruker «Aparent Utlegg» og `/aparent-utlegg-share.png` (hvit logo på svart, 1200 × 630), med SVG-kilde ved siden av. Private opplysninger inngår ikke i delingsmetadata. Meldingsapper kan mellomlagre tidligere delingskort.
+Delingsmetadata bruker «Aparent Utlegg» uten forhåndsvisningsbilde, slik at e-post og meldingsapper viser et kompakt lenkekort i stedet for et stort bilde. Private opplysninger inngår ikke i delingsmetadata. Meldingsapper kan mellomlagre tidligere delingskort.

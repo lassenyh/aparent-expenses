@@ -25,9 +25,8 @@ export const metadata: Metadata = {
     siteName: "Aparent Utlegg",
     type: "website",
     locale: "nb_NO",
-    images: [{ url: "/aparent-utlegg-share.png", width: 1200, height: 630, alt: "Aparent – hvit logo på svart bakgrunn" }],
   },
-  twitter: { card: "summary_large_image", title: "Aparent Utlegg", images: ["/aparent-utlegg-share.png"] },
+  twitter: { card: "summary", title: "Aparent Utlegg" },
   description: "Last opp og send inn utlegg til produsent",
   icons: {
     icon: "/favicon.ico",
